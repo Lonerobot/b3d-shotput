@@ -1,5 +1,4 @@
 import bpy
-from pathlib import Path
 
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
@@ -11,34 +10,11 @@ logger = LoggerFactory.logger_obj()
 class OT_Update_Version(bpy.types.Operator):
     bl_idname = "shotput.update_version"
     bl_label = "Update Version"
-    bl_description = "Update version numbers for Shotput file output nodes"
+    bl_description = "Update version numbers for Shotput file output nodes (selected nodes, or all if none selected)"
     bl_options = {'REGISTER', 'UNDO'}
     
-    # Operator properties
-    target_mode: bpy.props.EnumProperty(
-        name="Target",
-        description="Which nodes to update",
-        items=[
-            ('SELECTED', "Selected Node", "Update only the selected Shotput file output node"),
-            ('ALL', "All Nodes", "Update all Shotput file output nodes in the scene"),
-        ],
-        default='SELECTED'
-    )
-    
-    increment_version: bpy.props.BoolProperty(
-        name="Increment Version",
-        description="Increment to the next version number",
-        default=True
-    )
-    
-    specific_version: bpy.props.StringProperty(
-        name="Specific Version",
-        description="Set a specific version (e.g., v005)",
-        default=""
-    )
-    
     def execute(self, context):
-        logger.info(f"Update Version operator clicked - Mode: {self.target_mode}")
+        logger.info("Update Version operator executed")
         
         # Get the compositor node tree
         if not context.scene.use_nodes:
@@ -50,7 +26,7 @@ class OT_Update_Version(bpy.types.Operator):
             self.report({'ERROR'}, "No compositor node tree found")
             return {'CANCELLED'}
         
-        # Find target nodes
+        # Find target nodes: selected first, then all if none selected
         target_nodes = self._get_target_nodes(tree)
         
         if not target_nodes:
@@ -68,7 +44,8 @@ class OT_Update_Version(bpy.types.Operator):
                 continue
         
         if updated_count > 0:
-            self.report({'INFO'}, f"Updated {updated_count} node(s)")
+            mode = "selected" if len(target_nodes) < self._count_all_shotput_nodes(tree) else "all"
+            self.report({'INFO'}, f"Updated {updated_count} {mode} node(s) to next version")
             logger.info(f"Successfully updated {updated_count} Shotput nodes")
         else:
             self.report({'WARNING'}, "No nodes were updated")
@@ -76,21 +53,27 @@ class OT_Update_Version(bpy.types.Operator):
         return {'FINISHED'}
     
     def _get_target_nodes(self, tree):
-        """Get the target nodes based on the selected mode"""
-        target_nodes = []
+        """Get target nodes: selected Shotput nodes first, all Shotput nodes if none selected"""
+        # First, check for selected Shotput nodes
+        selected_shotput_nodes = []
+        for node in tree.nodes:
+            if node.select and self._is_shotput_node(node):
+                selected_shotput_nodes.append(node)
         
-        if self.target_mode == 'SELECTED':
-            # Get selected node
-            if tree.nodes.active and tree.nodes.active.select:
-                if self._is_shotput_node(tree.nodes.active):
-                    target_nodes.append(tree.nodes.active)
-        else:  # ALL mode
-            # Get all Shotput nodes
-            for node in tree.nodes:
-                if self._is_shotput_node(node):
-                    target_nodes.append(node)
+        if selected_shotput_nodes:
+            return selected_shotput_nodes
         
-        return target_nodes
+        # If no Shotput nodes are selected, get all Shotput nodes
+        all_shotput_nodes = []
+        for node in tree.nodes:
+            if self._is_shotput_node(node):
+                all_shotput_nodes.append(node)
+        
+        return all_shotput_nodes
+    
+    def _count_all_shotput_nodes(self, tree):
+        """Count all Shotput nodes in the tree"""
+        return sum(1 for node in tree.nodes if self._is_shotput_node(node))
     
     def _is_shotput_node(self, node):
         """Check if a node is a Shotput file output node"""
@@ -104,15 +87,8 @@ class OT_Update_Version(bpy.types.Operator):
             node_props = node.shotput_data
             token_parser = TokenParser(node_props)
             
-            # Determine the new version
-            if self.specific_version and self.specific_version.strip():
-                # Use specific version
-                new_version = self.specific_version.strip()
-                if not new_version.startswith('v'):
-                    new_version = f"v{new_version}"
-            else:
-                # Calculate next version
-                new_version = self._calculate_next_version(node_props, token_parser)
+            # Calculate next version (no specific version support in streamlined UX)
+            new_version = self._calculate_next_version(node_props, token_parser)
             
             # Update node properties
             node_props.version = new_version
@@ -182,33 +158,124 @@ class OT_Update_Version(bpy.types.Operator):
                 
         except Exception as e:
             logger.error(f"Error updating file slots: {e}")
+
+
+class OT_Token_Help(bpy.types.Operator):
+    bl_idname = "shotput.token_help"
+    bl_label = "Token Help"
+    bl_description = "Show available tokens and their descriptions"
+    bl_options = {'REGISTER'}
     
-    def invoke(self, context, event):
-        # Show dialog for user input
-        return context.window_manager.invoke_props_dialog(self)
+    def execute(self, context):
+        return context.window_manager.invoke_popup(self, width=700)
     
     def draw(self, context):
         layout = self.layout
         
-        layout.prop(self, "target_mode")
+        layout.label(text="Shotput Token Reference", icon='HELP')
         layout.separator()
         
-        layout.prop(self, "increment_version")
+        # Create a dummy parser to get token info
+        class DummyProps:
+            def __init__(self):
+                self.render_layer = "Example"
+                self.variant = "v001" 
+                self.pass_name = "beauty"
         
-        if not self.increment_version:
-            layout.prop(self, "specific_version")
+        # Core Shotput tokens
+        col = layout.column()
+        box = col.box()
+        box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
         
-        # Show preview of what will be updated
-        tree = context.scene.node_tree
-        if tree:
-            target_nodes = self._get_target_nodes(tree)
-            if target_nodes:
-                box = layout.box()
-                box.label(text=f"Will update {len(target_nodes)} node(s):")
-                for node in target_nodes[:5]:  # Show max 5 nodes
-                    box.label(text=f"  • {node.name}", icon='FILE_CACHE')
-                if len(target_nodes) > 5:
-                    box.label(text=f"  ... and {len(target_nodes) - 5} more")
+        core_tokens = [
+            ('workdir', 'Current Blender file directory', 'C:/Projects/MyProject'),
+            ('subpath', 'Subpath from preferences', 'blender/renders'),
+            ('renderlayer', 'Render layer name', 'Beauty'),
+            ('passname', 'Pass name (beauty, diffuse, etc.)', 'beauty'),
+            ('variant', 'Version variant', 'v001'),
+            ('version', 'Version number', 'v001'),
+        ]
+        
+        for token, desc, example in core_tokens:
+            row = box.row()
+            split = row.split(factor=0.15)
+            split.label(text=f"{{{token}}}", icon='DOT')
+            split = split.split(factor=0.6)
+            split.label(text=desc)
+            split.label(text=f"→ {example}")
+        
+        # AYON-specific tokens
+        box = col.box()
+        box.label(text="AYON Integration Tokens", icon='NETWORK_DRIVE')
+        
+        ayon_tokens = [
+            ('project', 'AYON project path', '/projects/MyProject'),
+            ('projectname', 'AYON project name', 'MyProject'),
+            ('task', 'Current task name', 'modeling'),
+            ('folder', 'Folder path', 'assets/characters'),
+            ('user', 'Current user', 'artist01'),
+        ]
+        
+        for token, desc, example in ayon_tokens:
+            row = box.row()
+            split = row.split(factor=0.15)
+            split.label(text=f"{{{token}}}", icon='DOT')
+            split = split.split(factor=0.6)
+            split.label(text=desc)
+            split.label(text=f"→ {example}")
+        
+        # Blender-specific tokens
+        box = col.box()
+        box.label(text="Blender Context Tokens", icon='BLENDER')
+        
+        blender_tokens = [
+            ('blend_name', 'Current .blend filename', 'scene_001'),
+            ('scene_name', 'Active scene name', 'Scene'),
+            ('frame', 'Current frame number', '001'),
+            ('camera', 'Active camera name', 'Camera'),
+        ]
+        
+        for token, desc, example in blender_tokens:
+            row = box.row()
+            split = row.split(factor=0.15)
+            split.label(text=f"{{{token}}}", icon='DOT')
+            split = split.split(factor=0.6)
+            split.label(text=desc)
+            split.label(text=f"→ {example}")
+        
+        # Date/time tokens
+        box = col.box()
+        box.label(text="Date/Time Tokens", icon='TIME')
+        
+        datetime_tokens = [
+            ('date', 'Current date (YYYY-MM-DD)', '2025-08-08'),
+            ('time', 'Current time (HH-MM-SS)', '14-30-45'),
+        ]
+        
+        for token, desc, example in datetime_tokens:
+            row = box.row()
+            split = row.split(factor=0.15)
+            split.label(text=f"{{{token}}}", icon='DOT')
+            split = split.split(factor=0.6)
+            split.label(text=desc)
+            split.label(text=f"→ {example}")
+        
+        # Usage examples
+        layout.separator()
+        box = layout.box()
+        box.label(text="Common Usage Examples", icon='HELP')
+        
+        examples = [
+            "Root Folder: {workdir}/{subpath}/{renderlayer}_{variant}/{version}",
+            "File Name: {renderlayer}_{passname}_{variant}",
+            "AYON Path: {project}/{folder}/{task}/renders/{version}",
+            "Dated Output: {workdir}/renders/{date}/{renderlayer}_{variant}",
+        ]
+        
+        for example in examples:
+            row = box.row()
+            row.scale_y = 0.8
+            row.label(text=f"• {example}")
 
 
 class OT_Preview_Paths(bpy.types.Operator):
@@ -216,6 +283,10 @@ class OT_Preview_Paths(bpy.types.Operator):
     bl_label = "Preview Paths"
     bl_description = "Preview resolved paths for current Shotput settings"
     bl_options = {'REGISTER'}
+    
+    core_path: bpy.props.StringProperty(default="")
+    aov_path: bpy.props.StringProperty(default="")
+    data_path: bpy.props.StringProperty(default="")
     
     def execute(self, context):
         scene = context.scene
@@ -228,21 +299,31 @@ class OT_Preview_Paths(bpy.types.Operator):
         # Create a temporary token parser
         class TempNodeProps:
             def __init__(self, props):
-                self.render_layer = props.render_layer
-                self.variant = props.variant
-                self.root_folder_token = props.root_folder_token
-                self.file_name_token = props.file_name_token
+                self.render_layer = getattr(props, 'render_layer', None) or "RenderLayer"
+                self.variant = getattr(props, 'variant', None) or "Main"
+                self.root_folder_token = getattr(props, 'root_folder_token', None) or "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}"
+                self.file_name_token = getattr(props, 'file_name_token', None) or "{renderlayer}_{passname}_{variant}"
                 self.pass_name = "Preview"
+                self.version = "v001"
         
-        temp_props = TempNodeProps(shotput_props)
-        parser = TokenParser(temp_props)
-        
-        # Show preview dialog
-        self.preview_data = {
-            'core': parser.resolve_full_output_path('core'),
-            'aov': parser.resolve_full_output_path('aov'),
-            'data': parser.resolve_full_output_path('data')
-        }
+        try:
+            temp_props = TempNodeProps(shotput_props)
+            parser = TokenParser(temp_props)
+            
+            # Generate preview paths for different pass types
+            temp_props.pass_name = "beauty"
+            self.core_path = f"{parser.parse_token(temp_props.root_folder_token)}/{parser.parse_token(temp_props.file_name_token)}"
+            
+            temp_props.pass_name = "diffuse"
+            self.aov_path = f"{parser.parse_token(temp_props.root_folder_token)}/{parser.parse_token(temp_props.file_name_token)}"
+            
+            temp_props.pass_name = "depth"
+            self.data_path = f"{parser.parse_token(temp_props.root_folder_token)}/{parser.parse_token(temp_props.file_name_token)}"
+            
+        except Exception as e:
+            self.core_path = f"Error: {str(e)}"
+            self.aov_path = f"Error: {str(e)}"
+            self.data_path = f"Error: {str(e)}"
         
         return context.window_manager.invoke_popup(self, width=600)
     
@@ -252,28 +333,40 @@ class OT_Preview_Paths(bpy.types.Operator):
         layout.label(text="Path Preview", icon='PREVIEW_RANGE')
         layout.separator()
         
-        for pass_type, (base_path, filename) in self.preview_data.items():
-            box = layout.box()
-            box.label(text=f"{pass_type.upper()} Passes:", icon='FILE_FOLDER')
-            
-            # Base path
-            row = box.row()
-            row.label(text="Base Path:")
-            row = box.row()
-            row.scale_y = 0.8
-            row.label(text=base_path)
-            
-            # Filename
-            row = box.row()
-            row.label(text="Filename:")
-            row = box.row()
-            row.scale_y = 0.8
-            row.label(text=filename)
-            
-            # Full path
-            row = box.row()
-            row.label(text="Full Path:")
-            row = box.row()
-            row.scale_y = 0.8
-            full_path = str(Path(base_path) / filename) if base_path and filename else "Invalid"
-            row.label(text=full_path)
+        # Core passes
+        box = layout.box()
+        box.label(text="Core Passes:", icon='FILE_FOLDER')
+        row = box.row()
+        row.scale_y = 0.8
+        row.label(text=self.core_path)
+        
+        # AOV passes
+        box = layout.box()
+        box.label(text="AOV Passes:", icon='FILE_FOLDER')
+        row = box.row()
+        row.scale_y = 0.8
+        row.label(text=self.aov_path)
+        
+        # Data passes
+        box = layout.box()
+        box.label(text="Data Passes:", icon='FILE_FOLDER')
+        row = box.row()
+        row.scale_y = 0.8
+        row.label(text=self.data_path)
+
+
+classes = (
+    OT_Update_Version,
+    OT_Token_Help,
+    OT_Preview_Paths,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

@@ -95,6 +95,17 @@ def get_file_format_for_pass_type(pass_type: str, ui_format: str = "OPEN_EXR") -
         Blender file format string
     """
     try:
+        # For data passes, use the preference override
+        if pass_type == "data":
+            try:
+                from .. import __package_name__
+                prefs = bpy.context.preferences.addons[__package_name__].preferences
+                return prefs.data_node_format_override
+            except Exception as e:
+                logger.warning(f"Could not get data format preference, using fallback: {e}")
+                return "OPEN_EXR_MULTILAYER"
+        
+        # For core and aov passes, use JSON configuration
         defaults = load_default_passes()
         format_overrides = defaults.get("file_format_overrides", {})
         
@@ -114,6 +125,39 @@ def get_file_format_for_pass_type(pass_type: str, ui_format: str = "OPEN_EXR") -
             return "OPEN_EXR_MULTILAYER"
         else:
             return ui_format
+
+
+def get_sequence_padding() -> str:
+    """
+    Get the sequence padding string from preferences.
+    
+    Returns:
+        Padding string like "####" based on preference setting
+    """
+    try:
+        from .. import __package_name__
+        prefs = bpy.context.preferences.addons[__package_name__].preferences
+        padding_count = prefs.sequence_padding
+        return "#" * padding_count
+    except Exception as e:
+        logger.warning(f"Could not get sequence padding preference, using default: {e}")
+        return "####"
+
+
+def get_subpath_token_value() -> str:
+    """
+    Get the subpath token value from preferences.
+    
+    Returns:
+        Subpath value for {subpath} token
+    """
+    try:
+        from .. import __package_name__
+        prefs = bpy.context.preferences.addons[__package_name__].preferences
+        return prefs.subpath_token_value
+    except Exception as e:
+        logger.warning(f"Could not get subpath token value, using default: {e}")
+        return "blender/renders"
 
 
 def apply_data_format_settings(file_output_node):

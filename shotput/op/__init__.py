@@ -1,4 +1,4 @@
-'''
+r'''
   _____ _  _ ___   _	___ _  _ ___			
  |_   _| || | __| | |  |_ _| \| | __|   		
 _______________________________________          
@@ -25,7 +25,7 @@ from .open_output_folder import OT_Open_Output_Folder
 from .create_core_passes import OT_Create_Core_Passes
 from .create_aov_passes import OT_Create_AOV_Passes
 from .create_data_passes import OT_Create_Data_Passes
-from .versioning import OT_Update_Version, OT_Preview_Paths
+from .versioning import OT_Update_Version, OT_Preview_Paths, OT_Token_Help
 
 
 import bpy
@@ -37,6 +37,7 @@ classes = (
         OT_Create_Data_Passes,
         OT_Update_Version,
         OT_Preview_Paths,
+        OT_Token_Help,
         )
 
 

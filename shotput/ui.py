@@ -133,11 +133,9 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box.label(text="Path Management", icon='FILE_FOLDER')
         row = box.row()
         row.operator("shotput.preview_paths", icon='PREVIEW_RANGE', text="Preview Paths")
+        row.operator("shotput.token_help", icon='HELP', text="Token Help")
         row = box.row()
         row.operator("shotput.update_version", icon='FILE_REFRESH', text="Update Version")
-        sub_row = row.row()
-        sub_row.scale_x = 0.7
-        sub_row.operator("shotput.update_version", text="All").target_mode = 'ALL'
 
         # Path Tokens Box - Root Folder and File Name
         box = layout.box()
@@ -146,50 +144,70 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box.prop(shotput, "file_name_token", text="File Name")
         box.prop(shotput, "output_format", text="Output Format", expand=True)
 
-        # Core Passes UIList
+        # Core Passes UIList (collapsible, closed by default)
         box = layout.box()
-        box.label(text="Core Passes", icon='RENDER_RESULT')
-        box.prop(shotput, "core_override", text="Core Name Override")
         row = box.row()
-        row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
-        col = row.column(align=True)
-        col.operator("shotput.core_pass_add", icon='ADD', text="")
-        col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
-        col.separator()
-        col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
-        col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
+        expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
+        row.prop(shotput, "expand_core_ui", 
+                icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
+                icon_only=True, emboss=False)
+        row.label(text="Core Passes", icon='RENDER_RESULT')
+        
+        if expand_core:
+            box.prop(shotput, "core_override", text="Core Name Override")
+            row = box.row()
+            row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
+            col = row.column(align=True)
+            col.operator("shotput.core_pass_add", icon='ADD', text="")
+            col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
+            col.separator()
+            col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
+            col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
 
-        # AOV Passes UIList
+        # AOV Passes UIList (collapsible, closed by default)
         box = layout.box()
-        box.label(text="AOV Passes", icon='IMAGE_RGB')
-        box.prop(shotput, "aov_override", text="AOV Name Override")
         row = box.row()
-        row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
-        col = row.column(align=True)
-        col.operator("shotput.aov_pass_add", icon='ADD', text="")
-        col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
-        col.separator()
-        col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
-        col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
+        expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
+        row.prop(shotput, "expand_aov_ui", 
+                icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
+                icon_only=True, emboss=False)
+        row.label(text="AOV Passes", icon='IMAGE_RGB')
+        
+        if expand_aov:
+            box.prop(shotput, "aov_override", text="AOV Name Override")
+            row = box.row()
+            row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
+            col = row.column(align=True)
+            col.operator("shotput.aov_pass_add", icon='ADD', text="")
+            col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
+            col.separator()
+            col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
+            col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
 
-        # Data Passes Section
+        # Data Passes Section (collapsible, closed by default)
         box = layout.box()
-        box.label(text="Data Passes", icon='FILE_BLEND')
+        row = box.row()
+        expand_data = shotput.expand_data_ui if hasattr(shotput, 'expand_data_ui') else False
+        row.prop(shotput, "expand_data_ui", 
+                icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
+                icon_only=True, emboss=False)
+        row.label(text="Data Passes", icon='FILE_BLEND')
         
-        # Basic data passes
-        col = box.column(align=True)
-        col.prop(shotput, "z", text="Depth")
-        col.prop(shotput, "normal", text="Normal")
-        col.prop(shotput, "vector", text="Motion Vector")
-        col.prop(shotput, "position", text="UV")
-        col.prop(shotput, "mist", text="Mist")
-        col.prop(shotput, "occlusion", text="Ambient Occlusion")
-        
-        # Cryptomatte passes
-        col.separator()
-        col.prop(shotput, "crypto_object", text="Cryptomatte Object")
-        col.prop(shotput, "crypto_material", text="Cryptomatte Material")
-        col.prop(shotput, "crypto_asset", text="Cryptomatte Asset")
+        if expand_data:
+            # Basic data passes
+            col = box.column(align=True)
+            col.prop(shotput, "z", text="Depth")
+            col.prop(shotput, "normal", text="Normal")
+            col.prop(shotput, "vector", text="Motion Vector")
+            col.prop(shotput, "position", text="UV")
+            col.prop(shotput, "mist", text="Mist")
+            col.prop(shotput, "occlusion", text="Ambient Occlusion")
+            
+            # Cryptomatte passes
+            col.separator()
+            col.prop(shotput, "crypto_object", text="Cryptomatte Object")
+            col.prop(shotput, "crypto_material", text="Cryptomatte Material")
+            col.prop(shotput, "crypto_asset", text="Cryptomatte Asset")
 
 # UIList for stored passes on File Output nodes
 class SHOTPUT_UL_StoredPasses(bpy.types.UIList):

@@ -132,6 +132,44 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
         description="Enable Cryptomatte Asset pass",
         default=False
     )
+    
+    # UI expansion states for main panel
+    expand_core_ui: bpy.props.BoolProperty(
+        name="Core Passes UI",
+        description="Show/hide core passes section in main UI",
+        default=False
+    )
+    
+    expand_aov_ui: bpy.props.BoolProperty(
+        name="AOV Passes UI", 
+        description="Show/hide AOV passes section in main UI",
+        default=False
+    )
+    
+    expand_data_ui: bpy.props.BoolProperty(
+        name="Data Passes UI",
+        description="Show/hide data passes section in main UI", 
+        default=False
+    )
+    
+    # UI expansion states for main panel
+    expand_core_ui: bpy.props.BoolProperty(
+        name="Core Passes UI",
+        description="Show/hide core passes section in main UI",
+        default=False
+    )
+    
+    expand_aov_ui: bpy.props.BoolProperty(
+        name="AOV Passes UI", 
+        description="Show/hide AOV passes section in main UI",
+        default=False
+    )
+    
+    expand_data_ui: bpy.props.BoolProperty(
+        name="Data Passes UI",
+        description="Show/hide data passes section in main UI", 
+        default=False
+    )
 
 classes = (
     ShotputPassItem,
