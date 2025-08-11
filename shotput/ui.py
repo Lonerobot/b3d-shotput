@@ -124,9 +124,9 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
         row = box.row()
-        row.operator("shotput.create_core_passes", icon='RENDERLAYERS')
-        row.operator("shotput.create_aov_passes", icon='IMAGE_RGB')
-        row.operator("shotput.create_data_passes", icon='FILE_BLEND')
+        row.operator("shotput.create_core_passes", icon='RENDERLAYERS', text="Core")
+        row.operator("shotput.create_aov_passes", icon='IMAGE_RGB', text="AOV")
+        row.operator("shotput.create_data_passes", icon='FILE_BLEND', text="Data")
         
         # Path Management Box
         box = layout.box()

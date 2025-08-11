@@ -93,10 +93,10 @@ class OT_Update_Version(bpy.types.Operator):
             # Update node properties
             node_props.version = new_version
             
-            # Update the base path
+            # Update the base path using the new reconstruction method
             root_token = node_props.root_folder_token
             if root_token:
-                new_base_path = token_parser.parse_token(root_token, version=new_version)
+                new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
                 node.base_path = new_base_path
                 logger.debug(f"Updated base path for {node.name}: {new_base_path}")
             
@@ -111,20 +111,36 @@ class OT_Update_Version(bpy.types.Operator):
             return False
     
     def _calculate_next_version(self, node_props, token_parser):
-        """Calculate the next version number for a node"""
+        """Calculate the next version number for a node, handling {version} anywhere in the path"""
         try:
             # Parse the root folder token to get the base directory structure
             root_token = node_props.root_folder_token
             if not root_token:
                 return VersionUtils.versionDefault
             
-            # Parse without version to get the base path
-            base_path_no_version = token_parser.parse_token(
-                root_token.replace('/{version}', '').replace('{version}/', '').replace('{version}', '')
-            )
+            # Check if version token exists in the root token
+            if '{version}' not in root_token:
+                return VersionUtils.versionDefault
             
-            # Get next version for this path
-            return token_parser.get_next_version_for_path(base_path_no_version)
+            # Split the token at {version} to handle it properly
+            version_parts = root_token.split('{version}')
+            if len(version_parts) != 2:
+                logger.warning(f"Invalid version token structure in: {root_token}")
+                return VersionUtils.versionDefault
+            
+            prefix_token = version_parts[0]  # Everything before {version}
+            suffix_token = version_parts[1]  # Everything after {version}
+            
+            # Parse the prefix to get the base directory where version folders should be
+            base_path = token_parser.parse_token(prefix_token)
+            if not base_path:
+                return VersionUtils.versionDefault
+            
+            # Get the next version for this specific directory level
+            next_version = token_parser.get_next_version_for_path(base_path)
+            
+            logger.debug(f"Version calculation - Base path: {base_path}, Next version: {next_version}")
+            return next_version
             
         except Exception as e:
             logger.error(f"Error calculating next version: {e}")
@@ -144,30 +160,65 @@ class OT_Update_Version(bpy.types.Operator):
                 if i < len(node_props.stored_passes):
                     pass_name = node_props.stored_passes[i].name
                 
-                # Parse filename with new version
+                # Parse filename with new version using reconstruction method
                 if pass_name:
-                    new_filename = token_parser.parse_token(
-                        file_token, 
-                        version=new_version,
-                        passname=pass_name
-                    )
+                    # Create a temporary token string with the pass name override
+                    temp_token = file_token.replace('{passname}', pass_name)
+                    new_filename = self._reconstruct_path_with_version(temp_token, new_version, token_parser)
                 else:
-                    new_filename = token_parser.parse_token(file_token, version=new_version)
+                    new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
                 
                 slot.path = f"{new_filename}_"
                 
         except Exception as e:
             logger.error(f"Error updating file slots: {e}")
-
+    
+    def _reconstruct_path_with_version(self, token_string, new_version, token_parser):
+        """
+        Reconstruct a full path with the new version, handling {version} anywhere in the token string.
+        
+        Args:
+            token_string: Original token string with {version} placeholder
+            new_version: New version string (e.g., 'v002')
+            token_parser: TokenParser instance for resolving other tokens
+            
+        Returns:
+            Fully resolved path with the new version
+        """
+        if '{version}' not in token_string:
+            # No version token, just parse normally
+            return token_parser.parse_token(token_string)
+        
+        # Split at version token
+        version_parts = token_string.split('{version}')
+        if len(version_parts) != 2:
+            logger.warning(f"Invalid version token structure: {token_string}")
+            return token_parser.parse_token(token_string)
+        
+        prefix_token = version_parts[0]
+        suffix_token = version_parts[1]
+        
+        # Parse prefix and suffix separately, then combine with version
+        resolved_prefix = token_parser.parse_token(prefix_token) if prefix_token else ""
+        resolved_suffix = token_parser.parse_token(suffix_token) if suffix_token else ""
+        
+        # Combine: prefix + version + suffix
+        full_path = f"{resolved_prefix}{new_version}{resolved_suffix}"
+        
+        # Clean up any double slashes
+        full_path = full_path.replace('//', '/').replace('\\\\', '\\')
+        
+        logger.debug(f"Reconstructed path: {token_string} -> {full_path}")
+        return full_path
 
 class OT_Token_Help(bpy.types.Operator):
     bl_idname = "shotput.token_help"
     bl_label = "Token Help"
-    bl_description = "Show available tokens and their descriptions"
+    bl_description = "Show available tokens and their descriptions with current values"
     bl_options = {'REGISTER'}
     
     def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=700)
+        return context.window_manager.invoke_popup(self, width=750)
     
     def draw(self, context):
         layout = self.layout
@@ -175,107 +226,192 @@ class OT_Token_Help(bpy.types.Operator):
         layout.label(text="Shotput Token Reference", icon='HELP')
         layout.separator()
         
-        # Create a dummy parser to get token info
+        # Create a dummy props object for getting token values
         class DummyProps:
             def __init__(self):
-                self.render_layer = "Example"
-                self.variant = "v001" 
+                # Use scene properties if available, otherwise defaults
+                scene = context.scene
+                shotput_props = getattr(scene, 'shotput', None) if scene else None
+                
+                self.render_layer = getattr(shotput_props, 'render_layer', None) if shotput_props else None
+                if not self.render_layer:
+                    self.render_layer = getattr(context, 'view_layer', None).name if hasattr(context, 'view_layer') and context.view_layer else "RenderLayer"
+                
+                self.variant = getattr(shotput_props, 'variant', 'main') if shotput_props else "main"
                 self.pass_name = "beauty"
+                self.version = "v001"
         
-        # Core Shotput tokens
-        col = layout.column()
-        box = col.box()
-        box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
-        
-        core_tokens = [
-            ('workdir', 'Current Blender file directory', 'C:/Projects/MyProject'),
-            ('subpath', 'Subpath from preferences', 'blender/renders'),
-            ('renderlayer', 'Render layer name', 'Beauty'),
-            ('passname', 'Pass name (beauty, diffuse, etc.)', 'beauty'),
-            ('variant', 'Version variant', 'v001'),
-            ('version', 'Version number', 'v001'),
-        ]
-        
-        for token, desc, example in core_tokens:
-            row = box.row()
-            split = row.split(factor=0.15)
-            split.label(text=f"{{{token}}}", icon='DOT')
-            split = split.split(factor=0.6)
-            split.label(text=desc)
-            split.label(text=f"→ {example}")
-        
-        # AYON-specific tokens
-        box = col.box()
-        box.label(text="AYON Integration Tokens", icon='NETWORK_DRIVE')
-        
-        ayon_tokens = [
-            ('project', 'AYON project path', '/projects/MyProject'),
-            ('projectname', 'AYON project name', 'MyProject'),
-            ('task', 'Current task name', 'modeling'),
-            ('folder', 'Folder path', 'assets/characters'),
-            ('user', 'Current user', 'artist01'),
-        ]
-        
-        for token, desc, example in ayon_tokens:
-            row = box.row()
-            split = row.split(factor=0.15)
-            split.label(text=f"{{{token}}}", icon='DOT')
-            split = split.split(factor=0.6)
-            split.label(text=desc)
-            split.label(text=f"→ {example}")
-        
-        # Blender-specific tokens
-        box = col.box()
-        box.label(text="Blender Context Tokens", icon='BLENDER')
-        
-        blender_tokens = [
-            ('blend_name', 'Current .blend filename', 'scene_001'),
-            ('scene_name', 'Active scene name', 'Scene'),
-            ('frame', 'Current frame number', '001'),
-            ('camera', 'Active camera name', 'Camera'),
-        ]
-        
-        for token, desc, example in blender_tokens:
-            row = box.row()
-            split = row.split(factor=0.15)
-            split.label(text=f"{{{token}}}", icon='DOT')
-            split = split.split(factor=0.6)
-            split.label(text=desc)
-            split.label(text=f"→ {example}")
-        
-        # Date/time tokens
-        box = col.box()
-        box.label(text="Date/Time Tokens", icon='TIME')
-        
-        datetime_tokens = [
-            ('date', 'Current date (YYYY-MM-DD)', '2025-08-08'),
-            ('time', 'Current time (HH-MM-SS)', '14-30-45'),
-        ]
-        
-        for token, desc, example in datetime_tokens:
-            row = box.row()
-            split = row.split(factor=0.15)
-            split.label(text=f"{{{token}}}", icon='DOT')
-            split = split.split(factor=0.6)
-            split.label(text=desc)
-            split.label(text=f"→ {example}")
-        
-        # Usage examples
-        layout.separator()
-        box = layout.box()
-        box.label(text="Common Usage Examples", icon='HELP')
-        
-        examples = [
-            "Root Folder: {workdir}/{subpath}/{renderlayer}_{variant}/{version}",
-            "File Name: {renderlayer}_{passname}_{variant}",
-            "AYON Path: {project}/{folder}/{task}/renders/{version}",
-            "Dated Output: {workdir}/renders/{date}/{renderlayer}_{variant}",
-        ]
-        
-        for example in examples:
-            row = box.row()
-            row.scale_y = 0.8
-            row.label(text=f"• {example}")
+        # Create token parser to get actual current values
+        try:
+            dummy_props = DummyProps()
+            parser = TokenParser(dummy_props)
+            
+            # Core Shotput tokens with live values
+            col = layout.column()
+            box = col.box()
+            box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
+            
+            core_tokens = [
+                ('workdir', 'Current Blender file directory'),
+                ('subpath', 'Subpath from preferences'),
+                ('renderlayer', 'Render layer name'),
+                ('passname', 'Pass name (beauty, diffuse, etc.)'),
+                ('variant', 'Version variant'),
+                ('version', 'Version number'),
+            ]
+            
+            for token, desc in core_tokens:
+                try:
+                    value = parser._resolve_token(token)
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text=f"→ {value}")
+                except Exception as e:
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text="→ (error)")
+            
+            # AYON-specific tokens with live values
+            box = col.box()
+            box.label(text="AYON Integration Tokens", icon='NETWORK_DRIVE')
+            
+            ayon_tokens = [
+                ('project', 'AYON project path'),
+                ('projectname', 'AYON project name'),
+                ('task', 'Current task name'),
+                ('folder', 'Folder path'),
+                ('user', 'Current user'),
+            ]
+            
+            for token, desc in ayon_tokens:
+                try:
+                    value = parser._resolve_token(token)
+                    # Show placeholder if value is empty or default
+                    if not value or value in ["Unknown_Project", "Unknown_Task", "Unknown_User"]:
+                        value = f"(not in AYON)"
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text=f"→ {value}")
+                except Exception as e:
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text="→ (not available)")
+            
+            # Blender-specific tokens with live values
+            box = col.box()
+            box.label(text="Blender Context Tokens", icon='BLENDER')
+            
+            blender_tokens = [
+                ('blend_name', 'Current .blend filename'),
+                ('scene_name', 'Active scene name'),
+                ('frame', 'Current frame number'),
+                ('camera', 'Active camera name'),
+            ]
+            
+            for token, desc in blender_tokens:
+                try:
+                    value = parser._resolve_token(token)
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text=f"→ {value}")
+                except Exception as e:
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text="→ (error)")
+            
+            # Date/time tokens with live values
+            box = col.box()
+            box.label(text="Date/Time Tokens", icon='TIME')
+            
+            datetime_tokens = [
+                ('date', 'Current date (DD-MM-YY)'),
+                ('time', 'Current time (HH-MM-SS)'),
+            ]
+            
+            for token, desc in datetime_tokens:
+                try:
+                    value = parser._resolve_token(token)
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text=f"→ {value}")
+                except Exception as e:
+                    row = box.row()
+                    split = row.split(factor=0.15)
+                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split = split.split(factor=0.55)
+                    split.label(text=desc)
+                    split.label(text="→ (error)")
+            
+            # Usage examples with resolved paths
+            layout.separator()
+            box = layout.box()
+            box.label(text="Live Path Examples", icon='HELP')
+            
+            example_patterns = [
+                "{workdir}/{subpath}/{renderlayer}_{variant}/{version}",
+                "{renderlayer}_{passname}_{variant}",
+                "{workdir}/renders/{date}/{renderlayer}_{variant}",
+                "{blend_name}_{scene_name}_{frame}",
+            ]
+            
+            for pattern in example_patterns:
+                try:
+                    resolved = parser.parse_token(pattern)
+                    row = box.row()
+                    row.scale_y = 0.7
+                    col_split = row.column()
+                    col_split.label(text=f"Pattern: {pattern}")
+                    col_split.label(text=f"Result:  {resolved}")
+                    box.separator()
+                except Exception as e:
+                    row = box.row()
+                    row.scale_y = 0.8
+                    row.label(text=f"• {pattern} → (error resolving)")
+            
+        except Exception as e:
+            # Fallback to static examples if token parsing fails
+            layout.label(text="Error loading dynamic values - showing static examples", icon='ERROR')
+            layout.separator()
+            
+            box = layout.box()
+            box.label(text="Static Token Examples", icon='FILE_FOLDER')
+            
+            static_examples = [
+                ('workdir', 'Current Blender file directory', 'C:/Projects/MyProject'),
+                ('blend_name', 'Current .blend filename', 'scene_001'),
+                ('scene_name', 'Active scene name', context.scene.name if context.scene else 'Scene'),
+                ('date', 'Current date', '11-08-25'),
+                ('time', 'Current time', '14-30-45'),
+            ]
+            
+            for token, desc, example in static_examples:
+                row = box.row()
+                split = row.split(factor=0.15)
+                split.label(text=f"{{{token}}}", icon='DOT')
+                split = split.split(factor=0.55)
+                split.label(text=desc)
+                split.label(text=f"→ {example}")
 
 
 class OT_Preview_Paths(bpy.types.Operator):
@@ -284,9 +420,9 @@ class OT_Preview_Paths(bpy.types.Operator):
     bl_description = "Preview resolved paths for current Shotput settings"
     bl_options = {'REGISTER'}
     
-    core_path: bpy.props.StringProperty(default="")
-    aov_path: bpy.props.StringProperty(default="")
-    data_path: bpy.props.StringProperty(default="")
+    core_path = bpy.props.StringProperty(default="")
+    aov_path = bpy.props.StringProperty(default="")
+    data_path = bpy.props.StringProperty(default="")
     
     def execute(self, context):
         scene = context.scene

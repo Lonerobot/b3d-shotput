@@ -319,9 +319,9 @@ class TokenParser:
     
     # Date/time token resolvers
     def _resolve_date(self) -> str:
-        """Resolve current date in YYYY-MM-DD format"""
+        """Resolve current date in DD-MM-YY format (UK style)"""
         from datetime import datetime
-        return datetime.now().strftime("%Y-%m-%d")
+        return datetime.now().strftime("%d-%m-%y")
     
     def _resolve_time(self) -> str:
         """Resolve current time in HH-MM-SS format"""
@@ -358,7 +358,7 @@ class TokenParser:
             'camera': 'Active camera name',
             
             # Date/time tokens
-            'date': 'Current date (YYYY-MM-DD)',
+            'date': 'Current date (DD-MM-YY)',
             'time': 'Current time (HH-MM-SS)',
         }
     
