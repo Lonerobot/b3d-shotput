@@ -8,7 +8,7 @@ class LoggerFactory(object):
     @param object - the object itself, which is the class itself.
     """
 
-    LOGGER_NAME = "RenderSetupAddonLogger"
+    LOGGER_NAME = "Shotput-Addon-Logger"
     FORMAT_DEFAULT = "[%(name)s][%(levelname)s] %(message)s"
     LEVEL_DEFAULT = logging.INFO
     PROPAGATE_DEFAULT = True

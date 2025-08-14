@@ -3,6 +3,7 @@ import bpy
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, apply_data_format_settings, get_sequence_padding
+from ..utils.lazy_hookup import auto_connect_node
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_Data_Passes(bpy.types.Operator):
@@ -30,7 +31,7 @@ class OT_Create_Data_Passes(bpy.types.Operator):
             ('normal', 'Normal'),
             ('vector', 'Motion Vector'),
             ('position', 'Position'),
-            ('occlusion', 'Ambient Occlusion'),
+            ('occlusion', 'Occlusion'),
             ('crypto_object', 'Cryptomatte Object'),
             ('crypto_material', 'Cryptomatte Material'),
             ('crypto_asset', 'Cryptomatte Asset')
@@ -42,6 +43,27 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         for prop_name, display_name in data_pass_properties:
             if hasattr(shotput_props, prop_name) and getattr(shotput_props, prop_name):
                 enabled_data_passes.append(display_name)
+                
+                # Enable the corresponding view layer pass
+                view_layer = context.view_layer
+                if prop_name == 'z':
+                    view_layer.use_pass_z = True
+                elif prop_name == 'mist':
+                    view_layer.use_pass_mist = True
+                elif prop_name == 'normal':
+                    view_layer.use_pass_normal = True
+                elif prop_name == 'vector':
+                    view_layer.use_pass_vector = True
+                elif prop_name == 'position':
+                    view_layer.use_pass_position = True
+                elif prop_name == 'occlusion':
+                    view_layer.use_pass_ambient_occlusion = True
+                elif prop_name == 'crypto_object':
+                    view_layer.use_pass_cryptomatte_object = True
+                elif prop_name == 'crypto_material':
+                    view_layer.use_pass_cryptomatte_material = True
+                elif prop_name == 'crypto_asset':
+                    view_layer.use_pass_cryptomatte_asset = True
                 
                 # Handle cryptomatte special cases - create 3 channels per type
                 if prop_name == 'crypto_object':
@@ -111,6 +133,7 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use "data" as pass name
+        node_props.pass_type = "DATA"  # Set the pass type
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
@@ -126,10 +149,17 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         full_base_path = f"{resolved_base_path}/{resolved_filename}.{sequence_padding}"
         file_output.base_path = full_base_path
 
-        # Store the original data pass names (for UI display)
-        for data_pass_name in enabled_data_passes:
+        # Store the channel names that will actually be used in file slots (for manual hook-up)
+        for channel_name in enabled_channel_names:
+            # Map certain channels to better names for compositing (same logic as file slots)
+            if channel_name == "z":
+                display_name = "depth"
+            elif channel_name == "occlusion":
+                display_name = "ao"
+            else:
+                display_name = channel_name
             stored_pass = node_props.stored_passes.add()
-            stored_pass.name = data_pass_name
+            stored_pass.name = display_name
 
         # ============================================================================
         # CRITICAL: Do ALL slot operations at the very end, after everything else is set
@@ -160,7 +190,12 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         # Configure file slots for each enabled channel using the working slot recreation approach
         for i, channel_name in enumerate(enabled_channel_names):
             # Map certain channels to better names for compositing
-            display_name = "depth" if channel_name == "z" else channel_name
+            if channel_name == "z":
+                display_name = "depth"
+            elif channel_name == "occlusion":
+                display_name = "ao"
+            else:
+                display_name = channel_name
             
             # Add new slot with desired name (all slots now work properly)
             new_slot = file_output.file_slots.new(display_name)
@@ -189,7 +224,14 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         final_input_names = [inp.name for inp in file_output.inputs]
         
         # Create display list of actual channel names used in slots
-        display_channel_names = ["depth" if name == "z" else name for name in enabled_channel_names]
+        display_channel_names = []
+        for name in enabled_channel_names:
+            if name == "z":
+                display_channel_names.append("depth")
+            elif name == "occlusion":
+                display_channel_names.append("ao")
+            else:
+                display_channel_names.append(name)
 
         print(f"Shotput: Created data passes node '{node_label}' with {len(enabled_data_passes)} passes ({len(enabled_channel_names)} channels)")
         print(f"Shotput: Forced format: {data_format} for full float precision (UI setting: {shotput_props.output_format})")
@@ -198,6 +240,10 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         print(f"Shotput: Final input names: {final_input_names}")
         print(f"Shotput: Expected channels: {display_channel_names}")
         logger.info(f"Created data passes file output node '{node_label}' with {len(enabled_data_passes)} passes using {data_format}")
+        
+        # Auto-connect node if lazy hook-up is enabled
+        # Use the display channel names for data passes
+        auto_connect_node(context, file_output, display_channel_names)
         
         # Select the new node
         file_output.select = True

@@ -3,6 +3,7 @@ import bpy
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
+from ..utils.lazy_hookup import auto_connect_node
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_AOV_Passes(bpy.types.Operator):
@@ -75,6 +76,7 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
+        node_props.pass_type = "AOV"  # Set the pass type
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
@@ -208,6 +210,10 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         print(f"Shotput: Using format: {aov_format} (UI setting: {shotput_props.output_format})")
         print(f"Shotput: Base path set to: {file_output.base_path}")
         logger.info(f"Created AOV passes file output node '{node_label}' with {len(shotput_props.aov_passes)} passes")
+        
+        # Auto-connect node if lazy hook-up is enabled
+        aov_pass_names = [aov_pass.name for aov_pass in shotput_props.aov_passes]
+        auto_connect_node(context, file_output, aov_pass_names)
         
         # Select the new node
         file_output.select = True

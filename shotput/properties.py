@@ -27,6 +27,17 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     pass_name: bpy.props.StringProperty(
         name="Pass Name"
     )
+    pass_type: bpy.props.EnumProperty(
+        name="Pass Type",
+        items=[
+            ('CORE', "Core", "Core render passes"),
+            ('AOV', "AOV", "Arbitrary Output Variable passes"),
+            ('DATA', "Data", "Data passes"),
+            ('COMPOSITE', "Composite", "Composite node with file output")
+        ],
+        default='CORE',
+        description="Type of pass node"
+    )
     variant: bpy.props.StringProperty(
         name="Variant"
     )
@@ -40,6 +51,11 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     stored_passes_index: bpy.props.IntProperty(
         name="Stored Passes Index", 
         default=0
+    )
+    expand_stored_passes_ui: bpy.props.BoolProperty(
+        name="Expand Stored Passes UI",
+        default=False,
+        description="Show/hide the stored passes list in the node UI"
     )
 
 
@@ -147,26 +163,14 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
     create_composite_from_core: bpy.props.BoolProperty(
         name="Create Composite Output From Core",
         description="Create a composite output node when creating core passes",
-        default=False
+        default=True
     )
     
-    # UI expansion states for main panel
-    expand_core_ui: bpy.props.BoolProperty(
-        name="Core Passes UI",
-        description="Show/hide core passes section in main UI",
-        default=False
-    )
-    
-    expand_aov_ui: bpy.props.BoolProperty(
-        name="AOV Passes UI", 
-        description="Show/hide AOV passes section in main UI",
-        default=False
-    )
-    
-    expand_data_ui: bpy.props.BoolProperty(
-        name="Data Passes UI",
-        description="Show/hide data passes section in main UI", 
-        default=False
+    # Lazy hook-up option
+    lazy_hook_up: bpy.props.BoolProperty(
+        name="Lazy Hook-up",
+        description="Automatically connect File Output nodes to render layer outputs when created",
+        default=True
     )
     
     # UI expansion states for main panel
@@ -202,8 +206,16 @@ def register():
     bpy.types.CompositorNodeOutputFile.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     bpy.types.CompositorNodeComposite.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     
-    # Initialize default passes after a short delay using timer
-    bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
+    # Initialize default passes immediately if possible, otherwise use timer
+    try:
+        if hasattr(bpy.context, 'scene') and bpy.context.scene:
+            initialize_default_passes()
+        else:
+            # Use timer if no scene context available yet
+            bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
+    except Exception:
+        # Fallback to timer initialization
+        bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
 
 def unregister():
     for cls in reversed(classes):

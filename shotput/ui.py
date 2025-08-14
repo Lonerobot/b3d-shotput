@@ -322,27 +322,30 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
         # Multi-line description with smaller text
         col.scale_y = 0.8
-        col.label(text="Create and manage organized File Output")
-        col.label(text="nodes for render passes with token-based")
-        col.label(text="paths and automated versioning.")
-        
+        col.label(text="Create and update automatic outputs for render passes")
+
         layout.separator()
 
         # Scene Properties Box - Render Layer and Variant
         box = layout.box()
         box.label(text="Scene Properties", icon='SCENE_DATA')
         box.prop(shotput, "render_layer", text="Render Layer")
-        box.prop(shotput, "variant", text="Variant")        # Create Passes Box
+        row = box.row()
+        row.prop(shotput, "variant", text="Variant")
+        row.operator("shotput.refresh_render_layers", text="", icon='FILE_REFRESH')
+       
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
         
         # Composite creation option
-        box.prop(shotput, "create_composite_from_core", text="Create Composite Output From Core")
-        
+
         row = box.row()
         row.operator("shotput.create_core_passes", icon='RENDERLAYERS', text="Core")
         row.operator("shotput.create_aov_passes", icon='IMAGE_RGB', text="AOV")
         row.operator("shotput.create_data_passes", icon='FILE_BLEND', text="Data")
+        
+        box.prop(shotput, "create_composite_from_core", text="Create Composite Output From Core")
+        box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")        # Create Passes Box
         
         # Path Management Box
         box = layout.box()
@@ -435,7 +438,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             col.prop(shotput, "vector", text="Motion Vector")
             col.prop(shotput, "position", text="UV")
             col.prop(shotput, "mist", text="Mist")
-            col.prop(shotput, "occlusion", text="Ambient Occlusion")
+            col.prop(shotput, "occlusion", text="Occlusion")
             
             # Cryptomatte passes
             col.separator()
@@ -450,13 +453,12 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Multi-line description with smaller text
         col = box.column(align=True)
         col.scale_y = 0.8
-        col.label(text="Save and load custom Shotput configurations")
-        col.label(text="as JSON presets for reuse across projects.")
+        col.label(text="Load and save custom Shotput configurations.")
         
         # Preset buttons
         row = box.row()
-        row.operator("shotput.save_preset", icon='EXPORT', text="Save Preset")
-        row.operator("shotput.load_preset", icon='IMPORT', text="Load Preset")
+        row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
+        row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):
@@ -490,20 +492,14 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             
             # Multi-line description with smaller text
             col.scale_y = 0.8
-            col.label(text="This Composite node controls the final")
-            col.label(text="scene render output path. When connected")
-            col.label(text="to the Composite output, 'Update Version'")
-            col.label(text="will sync the scene's render filepath.")
+            col.label(text="controls the scene's render output filepath.")
         else:
             col.label(text="Shotput File Output Node", icon='INFO')
             col.separator(factor=0.5)
             
             # Multi-line description with smaller text
             col.scale_y = 0.8
-            col.label(text="This File Output node is configured for")
-            col.label(text="organized render pass management.")
-            col.label(text="Paths use token-based naming for")
-            col.label(text="consistent project organization.")
+            col.label(text="File Output node for render pass management use token-based naming.")
         
         layout.separator()
         
@@ -530,25 +526,42 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         # Output Folder Actions
         row = box.row()
         row.operator("shotput.open_output_folder", text="Open Output Folder", icon='FOLDER_REDIRECT')
+        row.operator("shotput.lazy_hookup", text="Connect to Render Layer", icon='LINKED')
         
         # Stored Passes UIList - only show for non-composite nodes
-        if shotput_data.pass_name != "composite":
+        if not (hasattr(shotput_data, 'pass_type') and shotput_data.pass_type == "COMPOSITE"):
             box = layout.box()
-            box.label(text="Output Passes", icon='RENDERLAYERS')
-            
-            # Sync button (one-way: stored passes -> node slots)
             row = box.row()
-            row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
+            expand_stored = shotput_data.expand_stored_passes_ui if hasattr(shotput_data, 'expand_stored_passes_ui') else False
+            row.prop(shotput_data, "expand_stored_passes_ui", 
+                    icon="TRIA_DOWN" if expand_stored else "TRIA_RIGHT", 
+                    icon_only=True, emboss=False)
             
-            # UIList with controls
-            row = box.row()
-            row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
-            col = row.column(align=True)
-            col.operator("shotput.stored_pass_add", icon='ADD', text="")
-            col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
-            col.separator()
-            col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
-            col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
+            # Create label with pass type if available
+            label_text = "Output Passes"
+            if hasattr(shotput_data, 'pass_type') and shotput_data.pass_type:
+                label_text += f" ({shotput_data.pass_type.lower()})"
+            row.label(text=label_text, icon='RENDERLAYERS')
+            
+            if expand_stored:
+                # Show scan AOVs button only for AOV nodes
+                if hasattr(shotput_data, 'pass_type') and shotput_data.pass_type == "AOV":
+                    row = box.row()
+                    row.operator("shotput.scan_node_aovs", text="Scan Scene for AOVs", icon='VIEWZOOM')
+                
+                # Sync button (one-way: stored passes -> node slots)
+                row = box.row()
+                row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
+                
+                # UIList with controls
+                row = box.row()
+                row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
+                col = row.column(align=True)
+                col.operator("shotput.stored_pass_add", icon='ADD', text="")
+                col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
+                col.separator()
+                col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
+                col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
 
 classes = (
     SHOTPUT_UL_CorePasses,

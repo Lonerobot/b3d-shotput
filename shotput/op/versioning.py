@@ -27,6 +27,9 @@ class OT_Update_Version(bpy.types.Operator):
             self.report({'ERROR'}, "No compositor node tree found")
             return {'CANCELLED'}
         
+        # Check for multiple composite nodes and capture any warning
+        composite_warning = self._check_multiple_composite_nodes(tree)
+        
         # Find target nodes: selected first, then all if none selected
         target_nodes = self._get_target_nodes(tree)
         
@@ -45,14 +48,32 @@ class OT_Update_Version(bpy.types.Operator):
                 continue
         
         if updated_count > 0:
-            mode = "selected" if len(target_nodes) < self._count_relevant_shotput_nodes(tree) else "all"
-            self.report({'INFO'}, f"Updated {updated_count} {mode} node(s) to next version")
+            # Build success message with proper grammar
+            if len(target_nodes) < self._count_relevant_shotput_nodes(tree):
+                mode_text = f"{updated_count} selected node" + ("s" if updated_count != 1 else "")
+            else:
+                mode_text = f"all {updated_count} node" + ("s" if updated_count != 1 else "")
+            
+            success_msg = f"Updated {mode_text} to next version"
+            
+            # Combine with composite warning if present
+            if composite_warning:
+                combined_msg = f"{success_msg}. {composite_warning}"
+                self.report({'WARNING'}, combined_msg)
+            else:
+                self.report({'INFO'}, success_msg)
+            
             logger.info(f"Successfully updated {updated_count} Shotput nodes")
             
             # Handle composite node and scene render path update
             self._handle_composite_render_path(context, tree)
         else:
-            self.report({'WARNING'}, "No nodes were updated")
+            # Combine no updates message with composite warning if present
+            if composite_warning:
+                combined_msg = f"No nodes were updated. {composite_warning}"
+                self.report({'WARNING'}, combined_msg)
+            else:
+                self.report({'WARNING'}, "No nodes were updated")
             
         return {'FINISHED'}
     
@@ -103,6 +124,43 @@ class OT_Update_Version(bpy.types.Operator):
         return (node.type == 'COMPOSITE' and 
                 hasattr(node, 'shotput_data') and 
                 node.name.startswith('Shotput_'))
+    
+    def _check_multiple_composite_nodes(self, tree):
+        """Check for multiple connected composite nodes and return warning message if found"""
+        # Find all composite nodes that have incoming connections
+        connected_shotput_composites = []
+        connected_regular_composites = []
+        
+        for node in tree.nodes:
+            if node.type == 'COMPOSITE' and self._has_incoming_connections(node):
+                if self._is_shotput_composite_node(node):
+                    connected_shotput_composites.append(node)
+                else:
+                    connected_regular_composites.append(node)
+        
+        total_connected_count = len(connected_shotput_composites) + len(connected_regular_composites)
+        
+        if total_connected_count > 1:
+            # Build warning message
+            warning_parts = []
+            if len(connected_shotput_composites) > 1:
+                warning_parts.append(f"{len(connected_shotput_composites)} Shotput composite nodes")
+            elif len(connected_shotput_composites) == 1:
+                warning_parts.append("1 Shotput composite node")
+            
+            if len(connected_regular_composites) > 1:
+                warning_parts.append(f"{len(connected_regular_composites)} regular composite nodes")
+            elif len(connected_regular_composites) == 1:
+                warning_parts.append("1 regular composite node")
+            
+            warning_msg = f"Multiple connected composite nodes detected: {' and '.join(warning_parts)}. This may cause rendering conflicts."
+            
+            # Log warning for debugging
+            logger.warning(f"Multiple connected composite nodes found in scene: {len(connected_shotput_composites)} Shotput, {len(connected_regular_composites)} regular")
+            
+            return warning_msg
+        
+        return None
     
     def _handle_composite_render_path(self, context, tree):
         """Handle composite node validation and scene render path update"""
@@ -168,10 +226,10 @@ class OT_Update_Version(bpy.types.Operator):
             token_parser = TokenParser(node_props)
             
             # Parse the root folder token to get base path
-            base_path = token_parser.parse_token(node_props.root_folder_token, passname="composite")
+            base_path = token_parser.parse_token(node_props.root_folder_token, passname=node_props.pass_name)
             
             # Parse the file name token
-            filename = token_parser.parse_token(node_props.file_name_token, passname="composite")
+            filename = token_parser.parse_token(node_props.file_name_token, passname=node_props.pass_name)
             
             # Combine to create full render path
             full_path = f"{base_path}/{filename}"
@@ -795,10 +853,21 @@ class OT_Save_Preset(bpy.types.Operator):
             return {'CANCELLED'}
     
     def invoke(self, context, event):
-        # Set default filename
-        import datetime
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.filepath = f"shotput_preset_{timestamp}.json"
+        # Set default filename based on render layer and variant
+        scene = context.scene
+        if hasattr(scene, 'shotput'):
+            props = scene.shotput
+            render_layer = props.render_layer.lower() if props.render_layer else "default"
+            variant = props.variant.lower() if props.variant else "base"
+            # Replace any spaces or special characters with underscores for filename safety
+            render_layer = "".join(c if c.isalnum() else "_" for c in render_layer)
+            variant = "".join(c if c.isalnum() else "_" for c in variant)
+            self.filepath = f"shotput_preset_{render_layer}_{variant}.json"
+        else:
+            # Fallback to timestamp if properties not available
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.filepath = f"shotput_preset_{timestamp}.json"
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 

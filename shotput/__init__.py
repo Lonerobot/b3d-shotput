@@ -20,7 +20,7 @@ bl_info = {
     "blender": (4, 4, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
-    "version": (0, 0, 2),
+    "version": (1, 0, 0),
     "location": "Compositor Tab > Sidebar",
     "doc_url": "https://www.thelineanimation.com/",
     "wiki_url": "https://www.thelineanimation.com",
