@@ -44,9 +44,12 @@ class OT_Update_Version(bpy.types.Operator):
                 continue
         
         if updated_count > 0:
-            mode = "selected" if len(target_nodes) < self._count_all_shotput_nodes(tree) else "all"
+            mode = "selected" if len(target_nodes) < self._count_relevant_shotput_nodes(tree) else "all"
             self.report({'INFO'}, f"Updated {updated_count} {mode} node(s) to next version")
             logger.info(f"Successfully updated {updated_count} Shotput nodes")
+            
+            # Handle composite node and scene render path update
+            self._handle_composite_render_path(context, tree)
         else:
             self.report({'WARNING'}, "No nodes were updated")
             
@@ -54,10 +57,10 @@ class OT_Update_Version(bpy.types.Operator):
     
     def _get_target_nodes(self, tree):
         """Get target nodes: selected Shotput nodes first, all Shotput nodes if none selected"""
-        # First, check for selected Shotput nodes
+        # First, check for selected Shotput nodes (File Output and Composite)
         selected_shotput_nodes = []
         for node in tree.nodes:
-            if node.select and self._is_shotput_node(node):
+            if node.select and (self._is_shotput_node(node) or self._is_shotput_composite_node(node)):
                 selected_shotput_nodes.append(node)
         
         if selected_shotput_nodes:
@@ -66,20 +69,121 @@ class OT_Update_Version(bpy.types.Operator):
         # If no Shotput nodes are selected, get all Shotput nodes
         all_shotput_nodes = []
         for node in tree.nodes:
-            if self._is_shotput_node(node):
+            if self._is_shotput_node(node) or self._is_shotput_composite_node(node):
                 all_shotput_nodes.append(node)
         
         return all_shotput_nodes
     
+    def _count_relevant_shotput_nodes(self, tree):
+        """Count relevant Shotput nodes: all File Output nodes and only connected Composite nodes"""
+        count = 0
+        for node in tree.nodes:
+            if self._is_shotput_node(node):
+                # Count all File Output nodes
+                count += 1
+            elif self._is_shotput_composite_node(node):
+                # Only count Composite nodes that have incoming connections
+                if self._has_incoming_connections(node):
+                    count += 1
+        return count
+    
     def _count_all_shotput_nodes(self, tree):
-        """Count all Shotput nodes in the tree"""
-        return sum(1 for node in tree.nodes if self._is_shotput_node(node))
+        """Count all Shotput nodes in the tree (File Output and Composite)"""
+        return sum(1 for node in tree.nodes if (self._is_shotput_node(node) or self._is_shotput_composite_node(node)))
     
     def _is_shotput_node(self, node):
         """Check if a node is a Shotput file output node"""
         return (node.type == 'OUTPUT_FILE' and 
                 hasattr(node, 'shotput_data') and 
                 node.name.startswith('Shotput_'))
+    
+    def _is_shotput_composite_node(self, node):
+        """Check if a node is a Shotput composite node"""
+        return (node.type == 'COMPOSITE' and 
+                hasattr(node, 'shotput_data') and 
+                node.name.startswith('Shotput_'))
+    
+    def _handle_composite_render_path(self, context, tree):
+        """Handle composite node validation and scene render path update"""
+        try:
+            # Find all Shotput composite nodes
+            composite_nodes = []
+            for node in tree.nodes:
+                if self._is_shotput_composite_node(node):
+                    composite_nodes.append(node)
+            
+            if not composite_nodes:
+                # No composite nodes found, nothing to do
+                logger.debug("No Shotput composite nodes found")
+                return
+            
+            if len(composite_nodes) > 1:
+                # Multiple composite nodes - check for connections
+                connected_composites = []
+                for node in composite_nodes:
+                    if self._has_incoming_connections(node):
+                        connected_composites.append(node)
+                
+                if len(connected_composites) > 1:
+                    # Multiple connected composites - error
+                    node_names = [node.name for node in connected_composites]
+                    error_msg = f"Multiple connected Shotput composite nodes found: {', '.join(node_names)}. Only one composite should be connected."
+                    self.report({'ERROR'}, error_msg)
+                    logger.error(error_msg)
+                    return
+                elif len(connected_composites) == 1:
+                    # Single connected composite - use it
+                    composite_node = connected_composites[0]
+                else:
+                    # No connected composites - nothing to do
+                    logger.debug("Multiple Shotput composite nodes found but none are connected")
+                    return
+            else:
+                # Single composite node
+                composite_node = composite_nodes[0]
+                if not self._has_incoming_connections(composite_node):
+                    # Not connected - nothing to do
+                    logger.debug("Single Shotput composite node found but not connected")
+                    return
+            
+            # Update scene render path using composite node properties
+            self._update_scene_render_path(context, composite_node)
+            
+        except Exception as e:
+            logger.error(f"Error handling composite render path: {e}")
+            self.report({'WARNING'}, f"Failed to update scene render path: {e}")
+    
+    def _has_incoming_connections(self, node):
+        """Check if a node has any incoming connections"""
+        for input_socket in node.inputs:
+            if input_socket.is_linked:
+                return True
+        return False
+    
+    def _update_scene_render_path(self, context, composite_node):
+        """Update scene render filepath using composite node properties"""
+        try:
+            node_props = composite_node.shotput_data
+            token_parser = TokenParser(node_props)
+            
+            # Parse the root folder token to get base path
+            base_path = token_parser.parse_token(node_props.root_folder_token, passname="composite")
+            
+            # Parse the file name token
+            filename = token_parser.parse_token(node_props.file_name_token, passname="composite")
+            
+            # Combine to create full render path
+            full_path = f"{base_path}/{filename}"
+            
+            # Update scene render settings
+            context.scene.render.filepath = full_path
+            
+            logger.info(f"Updated scene render filepath to: {full_path}")
+            print(f"Shotput: Updated scene render path to: {full_path}")
+            
+        except Exception as e:
+            logger.error(f"Error updating scene render path: {e}")
+            raise
     
     def _update_node_version(self, node):
         """Update the version for a specific node"""
@@ -93,15 +197,17 @@ class OT_Update_Version(bpy.types.Operator):
             # Update node properties
             node_props.version = new_version
             
-            # Update the base path using the new reconstruction method
-            root_token = node_props.root_folder_token
-            if root_token:
-                new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
-                node.base_path = new_base_path
-                logger.debug(f"Updated base path for {node.name}: {new_base_path}")
-            
-            # Update file slot paths if needed
-            self._update_file_slots(node, node_props, token_parser, new_version)
+            # Update paths only for File Output nodes (not Composite nodes)
+            if node.type == 'OUTPUT_FILE':
+                # Update the base path using the new reconstruction method
+                root_token = node_props.root_folder_token
+                if root_token:
+                    new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
+                    node.base_path = new_base_path
+                    logger.debug(f"Updated base path for {node.name}: {new_base_path}")
+                
+                # Update file slot paths if needed
+                self._update_file_slots(node, node_props, token_parser, new_version)
             
             logger.info(f"Updated node {node.name} to version {new_version}")
             return True
@@ -111,7 +217,7 @@ class OT_Update_Version(bpy.types.Operator):
             return False
     
     def _calculate_next_version(self, node_props, token_parser):
-        """Calculate the next version number for a node, handling {version} anywhere in the path"""
+        """Calculate the next version number for a node based on existing filesystem folders"""
         try:
             # Parse the root folder token to get the base directory structure
             root_token = node_props.root_folder_token
@@ -136,7 +242,7 @@ class OT_Update_Version(bpy.types.Operator):
             if not base_path:
                 return VersionUtils.versionDefault
             
-            # Get the next version for this specific directory level
+            # Get the next version based purely on what exists on disk
             next_version = token_parser.get_next_version_for_path(base_path)
             
             logger.debug(f"Version calculation - Base path: {base_path}, Next version: {next_version}")
@@ -199,11 +305,41 @@ class OT_Update_Version(bpy.types.Operator):
         # This preserves the exact token structure and lets the normal parser handle it
         temp_token_string = token_string.replace('{version}', new_version)
         
-        # Use the normal token parser to resolve the complete string
-        resolved_path = token_parser.parse_token(temp_token_string)
+        # Use a safe token parsing that won't trigger version resolution
+        resolved_path = self._parse_token_with_fixed_version(temp_token_string, new_version, token_parser)
         
         logger.debug(f"Reconstructed path: {token_string} -> {resolved_path}")
         return resolved_path
+    
+    def _parse_token_with_fixed_version(self, token_string, fixed_version, token_parser):
+        """
+        Parse a token string with a fixed version to prevent double version resolution.
+        
+        Args:
+            token_string: Token string to parse (should not contain {version})
+            fixed_version: The fixed version to use if version resolution is encountered
+            token_parser: TokenParser instance
+            
+        Returns:
+            Fully resolved path
+        """
+        # Create a temporary version override in the token parser
+        original_version = getattr(token_parser.node_properties, 'version', None) if token_parser.node_properties else None
+        
+        try:
+            # Temporarily override the version in node properties
+            if token_parser.node_properties:
+                token_parser.node_properties.version = fixed_version
+            
+            # Parse the token string
+            resolved_path = token_parser.parse_token(token_string)
+            
+            return resolved_path
+            
+        finally:
+            # Restore original version
+            if token_parser.node_properties and original_version is not None:
+                token_parser.node_properties.version = original_version
 
 class OT_Token_Help(bpy.types.Operator):
     bl_idname = "shotput.token_help"
@@ -212,7 +348,7 @@ class OT_Token_Help(bpy.types.Operator):
     bl_options = {'REGISTER'}
     
     def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=750)
+        return context.window_manager.invoke_popup(self, width=550)
     
     def draw(self, context):
         layout = self.layout
@@ -245,8 +381,12 @@ class OT_Token_Help(bpy.types.Operator):
             box = col.box()
             box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
             
+            # Dynamic descriptions based on environment
+            import os
+            workdir_desc = "AYON work directory" if os.getenv("AYON_PROJECT_NAME") else "Current Blender directory"
+            
             core_tokens = [
-                ('workdir', 'AYON work directory'),
+                ('workdir', workdir_desc),
                 ('subpath', 'Subpath from preferences'),
                 ('renderlayer', 'Render layer name'),
                 ('passname', 'Pass name (beauty, diffuse, etc.)'),

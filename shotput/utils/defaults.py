@@ -45,7 +45,7 @@ def load_default_passes():
     else:
         # Fallback to addon's default JSON file
         addon_dir = Path(__file__).parent.parent
-        default_path = addon_dir / "data" / "default_passes.json"
+        default_path = addon_dir / "data" / "passes.json"
         json_files = [default_path]
         print(f"Shotput: Using default JSON path: {default_path}")
     

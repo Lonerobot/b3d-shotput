@@ -16,6 +16,11 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
         default="",
         description="Version of Shotput that created this node"
     )
+    version: bpy.props.StringProperty(
+        name="Version",
+        default="v001",
+        description="Current version number for this node"
+    )
     render_layer: bpy.props.StringProperty(
         name="Render Layer"
     )
@@ -138,6 +143,13 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
         default=False
     )
     
+    # Composite output creation option
+    create_composite_from_core: bpy.props.BoolProperty(
+        name="Create Composite Output From Core",
+        description="Create a composite output node when creating core passes",
+        default=False
+    )
+    
     # UI expansion states for main panel
     expand_core_ui: bpy.props.BoolProperty(
         name="Core Passes UI",
@@ -188,6 +200,7 @@ def register():
     
     bpy.types.Scene.shotput = bpy.props.PointerProperty(type=ShotputSceneProperties)
     bpy.types.CompositorNodeOutputFile.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
+    bpy.types.CompositorNodeComposite.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     
     # Initialize default passes after a short delay using timer
     bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
@@ -198,3 +211,4 @@ def unregister():
         
     del bpy.types.Scene.shotput
     del bpy.types.CompositorNodeOutputFile.shotput_data
+    del bpy.types.CompositorNodeComposite.shotput_data

@@ -335,6 +335,10 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box.prop(shotput, "variant", text="Variant")        # Create Passes Box
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
+        
+        # Composite creation option
+        box.prop(shotput, "create_composite_from_core", text="Create Composite Output From Core")
+        
         row = box.row()
         row.operator("shotput.create_core_passes", icon='RENDERLAYERS', text="Core")
         row.operator("shotput.create_aov_passes", icon='IMAGE_RGB', text="AOV")
@@ -450,10 +454,10 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
     
     @classmethod
     def poll(cls, context):
-        # Only show when a File Output node with shotput_data is selected
+        # Only show when a File Output or Composite node with shotput_data is selected
         return (context.space_data.type == 'NODE_EDITOR' and
                 context.active_node and
-                context.active_node.type == 'OUTPUT_FILE' and
+                context.active_node.type in ['OUTPUT_FILE', 'COMPOSITE'] and
                 hasattr(context.active_node, 'shotput_data'))
     
     def draw(self, context):
@@ -461,18 +465,30 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         node = context.active_node
         shotput_data = node.shotput_data
         
-        # Description/Help Box
+        # Description/Help Box - different for File Output vs Composite nodes
         box = layout.box()
         col = box.column(align=True)
-        col.label(text="Shotput File Output Node", icon='INFO')
-        col.separator(factor=0.5)
         
-        # Multi-line description with smaller text
-        col.scale_y = 0.8
-        col.label(text="This File Output node is configured for")
-        col.label(text="organized render pass management.")
-        col.label(text="Paths use token-based naming for")
-        col.label(text="consistent project organization.")
+        if node.type == 'COMPOSITE':
+            col.label(text="Shotput Composite Node", icon='INFO')
+            col.separator(factor=0.5)
+            
+            # Multi-line description with smaller text
+            col.scale_y = 0.8
+            col.label(text="This Composite node controls the final")
+            col.label(text="scene render output path. When connected")
+            col.label(text="to the Composite output, 'Update Version'")
+            col.label(text="will sync the scene's render filepath.")
+        else:
+            col.label(text="Shotput File Output Node", icon='INFO')
+            col.separator(factor=0.5)
+            
+            # Multi-line description with smaller text
+            col.scale_y = 0.8
+            col.label(text="This File Output node is configured for")
+            col.label(text="organized render pass management.")
+            col.label(text="Paths use token-based naming for")
+            col.label(text="consistent project organization.")
         
         layout.separator()
         
@@ -500,23 +516,24 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         row = box.row()
         row.operator("shotput.open_output_folder", text="Open Output Folder", icon='FOLDER_REDIRECT')
         
-        # Stored Passes UIList
-        box = layout.box()
-        box.label(text="Output Passes", icon='RENDERLAYERS')
-        
-        # Sync button (one-way: stored passes -> node slots)
-        row = box.row()
-        row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
-        
-        # UIList with controls
-        row = box.row()
-        row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
-        col = row.column(align=True)
-        col.operator("shotput.stored_pass_add", icon='ADD', text="")
-        col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
-        col.separator()
-        col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
-        col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
+        # Stored Passes UIList - only show for non-composite nodes
+        if shotput_data.pass_name != "composite":
+            box = layout.box()
+            box.label(text="Output Passes", icon='RENDERLAYERS')
+            
+            # Sync button (one-way: stored passes -> node slots)
+            row = box.row()
+            row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
+            
+            # UIList with controls
+            row = box.row()
+            row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
+            col = row.column(align=True)
+            col.operator("shotput.stored_pass_add", icon='ADD', text="")
+            col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
+            col.separator()
+            col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
+            col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
 
 classes = (
     SHOTPUT_UL_CorePasses,

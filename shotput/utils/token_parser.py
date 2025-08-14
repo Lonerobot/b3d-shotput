@@ -233,11 +233,31 @@ class TokenParser:
         """
         try:
             path = Path(base_path)
+            
+            # Check if the path exists or create it to check for version folders
             if path.exists():
+                # Directory exists, check for version folders
                 latest_version = VersionUtils.getVersionFolders(path, latest=True)
                 if latest_version:
                     return VersionUtils.getVersionString(latest_version, up=True)
-            return VersionUtils.versionDefault
+                else:
+                    # Directory exists but no version folders found
+                    return VersionUtils.versionDefault
+            else:
+                # Directory doesn't exist yet, start with default version
+                # But first check if any version folders were already created in the base path
+                # This can happen if Blender created the output directory during rendering
+                if path.parent.exists():
+                    # Check if any version directories exist in the parent that match our pattern
+                    for item in path.parent.iterdir():
+                        if item.is_dir() and item.name == path.name:
+                            # Found our target directory, check for versions
+                            latest_version = VersionUtils.getVersionFolders(item, latest=True)
+                            if latest_version:
+                                return VersionUtils.getVersionString(latest_version, up=True)
+                
+                return VersionUtils.versionDefault
+                
         except Exception as e:
             logger.error(f"Error calculating next version for {base_path}: {e}")
             return VersionUtils.versionDefault

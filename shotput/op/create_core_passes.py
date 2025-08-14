@@ -210,10 +210,60 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         print(f"Shotput: Base path set to: {file_output.base_path}")
         logger.info(f"Created core passes file output node '{node_label}' with {len(shotput_props.core_passes)} passes")
         
-        # Select the new node
+        # Create composite node if requested
+        composite_node = None
+        if shotput_props.create_composite_from_core:
+            composite_node = self._create_composite_node(context, tree, shotput_props, token_parser)
+        
+        # Select the new core node
         file_output.select = True
         tree.nodes.active = file_output
         
-        self.report({'INFO'}, f"Created core passes node '{node_label}' with {len(shotput_props.core_passes)} passes")
+        composite_msg = " and composite node" if composite_node else ""
+        self.report({'INFO'}, f"Created core passes node '{node_label}' with {len(shotput_props.core_passes)} passes{composite_msg}")
         
         return {'FINISHED'}
+    
+    def _create_composite_node(self, context, tree, shotput_props, token_parser):
+        """Create a Shotput Composite node (actual Blender Composite node for main output)"""
+        
+        # Create node label: render_layer.composite.variant
+        node_label = f"{shotput_props.render_layer}.composite.{shotput_props.variant}"
+        
+        # Create Composite node (not File Output) - this routes to main render output
+        composite_node = tree.nodes.new(type='CompositorNodeComposite')
+        composite_node.name = "Shotput_Composite"
+        composite_node.label = node_label
+        
+        # Set node color - PINK for composite!
+        composite_node.use_custom_color = True
+        composite_node.color = (0.8, 0.4, 0.8)  # Pink color
+        composite_node.width = 300  # Smaller since it's just routing
+        
+        # Position the node to the right of core passes
+        composite_node.location = (800, 0)
+        
+        # Set up Shotput properties on the composite node
+        comp_props = composite_node.shotput_data
+        
+        # Set the Shotput version
+        from .. import bl_info
+        comp_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
+        
+        # Copy scene properties to composite node
+        comp_props.render_layer = shotput_props.render_layer
+        comp_props.variant = shotput_props.variant
+        comp_props.root_folder_token = shotput_props.root_folder_token
+        comp_props.file_name_token = shotput_props.file_name_token
+        comp_props.pass_name = "composite"  # Set pass name to "composite"
+        
+        # Add single stored pass for composite (for UI consistency)
+        comp_props.stored_passes.clear()
+        stored_pass = comp_props.stored_passes.add()
+        stored_pass.name = "Composite"
+        
+        print(f"Shotput: Created composite node '{node_label}' (routes to main render output)")
+        print(f"Shotput: Composite node will use scene render settings for format/path")
+        logger.info(f"Created composite node '{node_label}' for main output routing")
+        
+        return composite_node
