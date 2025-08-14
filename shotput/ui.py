@@ -1,8 +1,19 @@
 import bpy
 from . import bl_info
+import os
 
 from .utils.log import LoggerFactory
 logger = LoggerFactory.logger_obj()
+
+def get_panel_title():
+    """Generate panel title with AYON status if available"""
+    base_title = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
+    
+    # Check if AYON environment is present
+    if os.getenv("AYON_PROJECT_NAME"):
+        return f"{base_title} - AYON Enabled"
+    
+    return base_title
 
 class SHOTPUT_OT_CorePassAdd(bpy.types.Operator):
     bl_idname = "shotput.core_pass_add"
@@ -291,7 +302,7 @@ class SHOTPUT_UL_StoredPasses(bpy.types.UIList):
         layout.prop(item, "name", text="", emboss=True, icon='RENDERLAYERS')
 
 class TL_PT_Shotput_UI(bpy.types.Panel):
-    bl_label = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
+    bl_label = get_panel_title()
     bl_category = "Shotput"
     bl_context = "output"
     bl_order = 2

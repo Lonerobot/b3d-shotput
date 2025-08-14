@@ -246,7 +246,7 @@ class OT_Token_Help(bpy.types.Operator):
             box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
             
             core_tokens = [
-                ('workdir', 'Current Blender file directory'),
+                ('workdir', 'AYON work directory'),
                 ('subpath', 'Subpath from preferences'),
                 ('renderlayer', 'Render layer name'),
                 ('passname', 'Pass name (beauty, diffuse, etc.)'),
@@ -276,7 +276,7 @@ class OT_Token_Help(bpy.types.Operator):
             box.label(text="AYON Integration Tokens", icon='NETWORK_DRIVE')
             
             ayon_tokens = [
-                ('project', 'AYON project path'),
+                ('project', 'AYON project root'),
                 ('projectname', 'AYON project name'),
                 ('task', 'Current task name'),
                 ('folder', 'Folder path'),

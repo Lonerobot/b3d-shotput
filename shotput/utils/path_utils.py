@@ -14,11 +14,11 @@ class PathUtils:
         return os.getenv("USERNAME")
     
     def get_project_path(self):
-        open_pype_server_root = os.getenv("AYON_PROJECT_ROOT_WORK") 
-        open_pype_project = os.getenv("AYON_PROJECT")
+        ayon_project_root = os.getenv("AYON_PROJECT_ROOT_WORK") 
+        ayon_project_name = os.getenv("AYON_PROJECT_NAME")
         
-        if open_pype_server_root and open_pype_project:  
-            project_path = Path() / open_pype_server_root / open_pype_project
+        if ayon_project_root and ayon_project_name:  
+            project_path = Path(ayon_project_root) / ayon_project_name
             logger.debug(f'PathUtils.get_project_path - {project_path}')
             return str(project_path)
         else:
