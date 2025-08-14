@@ -189,27 +189,21 @@ class OT_Update_Version(bpy.types.Operator):
             # No version token, just parse normally
             return token_parser.parse_token(token_string)
         
-        # Split at version token
+        # Split at version token to validate structure
         version_parts = token_string.split('{version}')
         if len(version_parts) != 2:
             logger.warning(f"Invalid version token structure: {token_string}")
             return token_parser.parse_token(token_string)
         
-        prefix_token = version_parts[0]
-        suffix_token = version_parts[1]
+        # Create a temporary token string with the version replaced
+        # This preserves the exact token structure and lets the normal parser handle it
+        temp_token_string = token_string.replace('{version}', new_version)
         
-        # Parse prefix and suffix separately, then combine with version
-        resolved_prefix = token_parser.parse_token(prefix_token) if prefix_token else ""
-        resolved_suffix = token_parser.parse_token(suffix_token) if suffix_token else ""
+        # Use the normal token parser to resolve the complete string
+        resolved_path = token_parser.parse_token(temp_token_string)
         
-        # Combine: prefix + version + suffix
-        full_path = f"{resolved_prefix}{new_version}{resolved_suffix}"
-        
-        # Clean up any double slashes
-        full_path = full_path.replace('//', '/').replace('\\\\', '\\')
-        
-        logger.debug(f"Reconstructed path: {token_string} -> {full_path}")
-        return full_path
+        logger.debug(f"Reconstructed path: {token_string} -> {resolved_path}")
+        return resolved_path
 
 class OT_Token_Help(bpy.types.Operator):
     bl_idname = "shotput.token_help"
@@ -362,32 +356,6 @@ class OT_Token_Help(bpy.types.Operator):
                     split = split.split(factor=0.55)
                     split.label(text=desc)
                     split.label(text="→ (error)")
-            
-            # Usage examples with resolved paths
-            layout.separator()
-            box = layout.box()
-            box.label(text="Live Path Examples", icon='HELP')
-            
-            example_patterns = [
-                "{workdir}/{subpath}/{renderlayer}_{variant}/{version}",
-                "{renderlayer}_{passname}_{variant}",
-                "{workdir}/renders/{date}/{renderlayer}_{variant}",
-                "{blend_name}_{scene_name}_{frame}",
-            ]
-            
-            for pattern in example_patterns:
-                try:
-                    resolved = parser.parse_token(pattern)
-                    row = box.row()
-                    row.scale_y = 0.7
-                    col_split = row.column()
-                    col_split.label(text=f"Pattern: {pattern}")
-                    col_split.label(text=f"Result:  {resolved}")
-                    box.separator()
-                except Exception as e:
-                    row = box.row()
-                    row.scale_y = 0.8
-                    row.label(text=f"• {pattern} → (error resolving)")
             
         except Exception as e:
             # Fallback to static examples if token parsing fails

@@ -4,7 +4,6 @@
 
 import bpy
 from . import bl_info
-from . import preferences
 
 from .utils.log import LoggerFactory
 logger = LoggerFactory.logger_obj()
@@ -132,17 +131,30 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box = layout.box()
         box.label(text="Path Management", icon='FILE_FOLDER')
         row = box.row()
-        row.operator("shotput.preview_paths", icon='PREVIEW_RANGE', text="Preview Paths")
-        row.operator("shotput.token_help", icon='HELP', text="Token Help")
-        row = box.row()
         row.operator("shotput.update_version", icon='FILE_REFRESH', text="Update Version")
+        row.operator("shotput.open_output_folder", icon='FOLDER_REDIRECT', text="")
 
-        # Path Tokens Box - Root Folder and File Name
+        # Path Tokens Box - Root Folder and File Name with icon operators
         box = layout.box()
         box.label(text="Path Tokens", icon='FILE_FOLDER')
-        box.prop(shotput, "root_folder_token", text="Root Folder")
-        box.prop(shotput, "file_name_token", text="File Name")
-        box.prop(shotput, "output_format", text="Output Format", expand=True)
+        
+        # Root folder with preview paths button
+        row = box.row()
+        row.prop(shotput, "root_folder_token", text="Root Folder")
+        row.operator("shotput.preview_paths", icon='FILE_FOLDER', text="")
+        
+        # File name with token help button  
+        row = box.row()
+        row.prop(shotput, "file_name_token", text="File Name")
+        row.operator("shotput.token_help", icon='QUESTION', text="")
+        
+        # Output Format in compact 2x2 grid
+        box.label(text="Output Format")
+        grid = box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
+        grid.prop_enum(shotput, "output_format", 'PNG')
+        grid.prop_enum(shotput, "output_format", 'JPEG')
+        grid.prop_enum(shotput, "output_format", 'OPEN_EXR')
+        grid.prop_enum(shotput, "output_format", 'OPEN_EXR_MULTILAYER')
 
         # Core Passes UIList (collapsible, closed by default)
         box = layout.box()
@@ -175,6 +187,11 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
         if expand_aov:
             box.prop(shotput, "aov_override", text="AOV Name Override")
+            
+            # Add scan button for shader AOVs
+            row = box.row()
+            row.operator("shotput.scan_shader_aovs", text="Scan Scene for AOVs", icon='VIEWZOOM')
+            
             row = box.row()
             row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
             col = row.column(align=True)
@@ -248,6 +265,10 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         box.label(text="Path Configuration", icon='FILE_FOLDER')
         box.prop(shotput_data, "root_folder_token", text="Root Folder")
         box.prop(shotput_data, "file_name_token", text="File Name")
+        
+        # Output Folder Actions
+        row = box.row()
+        row.operator("shotput.open_output_folder", text="Open Output Folder", icon='FOLDER_REDIRECT')
         
         # Stored Passes UIList
         box = layout.box()

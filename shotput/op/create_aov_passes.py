@@ -50,6 +50,11 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         file_output.name = f"Shotput_AOV_{area_name}"
         file_output.label = node_label
         
+        # Set file format IMMEDIATELY after node creation
+        # This must be done before ANY slot operations to prevent format from overriding slot names
+        aov_format = get_file_format_for_pass_type("aov", shotput_props.output_format)
+        file_output.format.file_format = aov_format
+        
         # Set node color - darker orange for AOV passes
         file_output.use_custom_color = True
         file_output.color = (0.7, 0.4, 0.2)  # Darker, more muted orange
@@ -73,13 +78,14 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Clear existing stored passes and populate with AOV passes
         node_props.stored_passes.clear()
         
-        # Clear existing file slots (except the first one)
+        # Clear existing file slots (except the first one) - use correct Blender API
         while len(file_output.file_slots) > 1:
-            file_output.file_slots.remove(file_output.file_slots[-1])
-        
-        # Set file format using override logic (respects UI setting for AOV passes)
-        aov_format = get_file_format_for_pass_type("aov", shotput_props.output_format)
-        file_output.format.file_format = aov_format
+            try:
+                # Remove via the input socket, not the file slot directly
+                file_output.inputs.remove(file_output.inputs[-1])
+            except (RuntimeError, IndexError, ValueError):
+                # If removal fails, break and work with what we have
+                break
         
         # Format-specific pathing logic
         sequence_padding = get_sequence_padding()  # Get from preferences
@@ -146,21 +152,25 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
             resolved_base_path = token_parser.parse_token(node_props.root_folder_token, passname=area_name)
             full_base_path = f"{resolved_base_path}/{resolved_filename}.{sequence_padding}"
             file_output.base_path = full_base_path
-            
-            # Configure file slots for each AOV pass
+
+            # EXR MULTILAYER FIRST SLOT FIX: Remove the default first slot entirely
+            # The default first slot has a bug where input name and slot path don't sync
+            # By removing and recreating it, the new slot behaves properly (like a "second" slot)
+            if len(file_output.file_slots) > 0:
+                print("Shotput: Removing problematic default first slot for EXR multilayer (AOV passes)")
+                file_output.inputs.remove(file_output.inputs[0])
+                print(f"Shotput: After removal: {len(file_output.file_slots)} slots remaining")
+
+            # Configure file slots for each AOV pass using the working slot recreation approach
             for i, aov_pass in enumerate(shotput_props.aov_passes):
                 pass_name = aov_pass.name
                 
                 # Convert "Beauty" to "rgba" for Nuke compatibility (though unlikely in AOV)
                 channel_name = "rgba" if pass_name.lower() == "beauty" else pass_name.lower()
                 
-                if i == 0:
-                    # Use the default slot for the first pass
-                    file_output.file_slots[0].path = channel_name
-                else:
-                    # Add new slots for additional passes
-                    file_output.file_slots.new(pass_name)
-                    file_output.file_slots[i].path = channel_name
+                # Add new slot with desired name (all slots now work properly)
+                file_output.file_slots.new(channel_name)
+                print(f"Shotput: Added AOV slot {i}: input='{file_output.inputs[i].name}', slot='{file_output.file_slots[i].path}', expected='{channel_name}'")
                 
                 # Add pass to stored passes
                 stored_pass = node_props.stored_passes.add()

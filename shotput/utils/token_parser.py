@@ -8,6 +8,7 @@ import bpy
 from .log import LoggerFactory
 from .path_utils import PathUtils
 from .version_utils import VersionUtils
+from .defaults import get_subpath_token_value
 
 logger = LoggerFactory.logger_obj()
 
@@ -136,8 +137,15 @@ class TokenParser:
         # Clean up any double slashes or invalid characters
         cleaned = str(path).replace('\\\\', '\\').replace('//', '/')
         
-        # Remove any remaining unresolved tokens for cleaner output
-        cleaned = re.sub(r'\{[^}]+\}', '', cleaned)
+        # Handle any remaining unresolved tokens more carefully
+        # Instead of removing them completely, replace with a placeholder
+        # to preserve path structure
+        def replace_unresolved_token(match):
+            token = match.group(1)
+            logger.warning(f"Unresolved token in path: {{{token}}}")
+            return f"UNRESOLVED_{token.upper()}"
+        
+        cleaned = re.sub(r'\{([^}]+)\}', replace_unresolved_token, cleaned)
         
         return cleaned
     
@@ -157,11 +165,8 @@ class TokenParser:
         return str(Path.home() / "Documents" / "Blender")
     
     def _resolve_subpath(self) -> str:
-        """Resolve subpath token from node properties"""
-        if self.node_properties and hasattr(self.node_properties, 'root_folder_token'):
-            # Extract subpath from properties if available
-            return getattr(self.node_properties, 'subpath', 'renders')
-        return 'renders'
+        """Resolve subpath token from addon preferences"""
+        return get_subpath_token_value()
     
     def _resolve_renderlayer(self) -> str:
         """Resolve render layer token from node properties"""

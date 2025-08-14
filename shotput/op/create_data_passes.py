@@ -82,6 +82,14 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         file_output.name = "Shotput_Data_Passes"
         file_output.label = node_label
         
+        # Set file format IMMEDIATELY after node creation (ALWAYS EXR multilayer for data passes)
+        # This must be done before ANY slot operations to prevent format from overriding slot names
+        data_format = get_file_format_for_pass_type("data", shotput_props.output_format)
+        file_output.format.file_format = data_format
+        
+        # Apply data-specific format settings (full float precision)
+        apply_data_format_settings(file_output)
+        
         # Set node color - darker red for data passes
         file_output.use_custom_color = True
         file_output.color = (0.6, 0.25, 0.25)  # Darker, more muted red
@@ -105,46 +113,86 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         
         # Clear existing stored passes and populate with enabled data passes
         node_props.stored_passes.clear()
-        
-        # Clear existing file slots (except the first one)
-        while len(file_output.file_slots) > 1:
-            file_output.file_slots.remove(file_output.file_slots[-1])
-        
-        # Set file format using override logic (ALWAYS EXR multilayer for data passes)
-        data_format = get_file_format_for_pass_type("data", shotput_props.output_format)
-        file_output.format.file_format = data_format
-        
-        # Apply data-specific format settings (full float precision)
-        apply_data_format_settings(file_output)
-        
-        # Data passes ALWAYS use multichannel EXR format
+          # Data passes ALWAYS use multichannel EXR format
         sequence_padding = get_sequence_padding()  # Get from preferences
-        
+
         # Multi channel EXR: base_path = rootpath + filename_token + .####, file_slots = channel names only
         resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=area_name)
         resolved_base_path = token_parser.parse_token(node_props.root_folder_token, passname=area_name)
         full_base_path = f"{resolved_base_path}/{resolved_filename}.{sequence_padding}"
         file_output.base_path = full_base_path
-        
-        # Configure file slots for each enabled channel (including cryptomatte expansions)
-        for i, channel_name in enumerate(enabled_channel_names):
-            if i == 0:
-                # Use the default slot for the first channel
-                file_output.file_slots[0].path = channel_name
-            else:
-                # Add new slots for additional channels
-                file_output.file_slots.new(channel_name)
-                file_output.file_slots[i].path = channel_name
-        
+
         # Store the original data pass names (for UI display)
         for data_pass_name in enabled_data_passes:
             stored_pass = node_props.stored_passes.add()
             stored_pass.name = data_pass_name
+
+        # ============================================================================
+        # CRITICAL: Do ALL slot operations at the very end, after everything else is set
+        # This ensures that no other property changes can interfere with slot naming
+        # ============================================================================
         
+        print("Shotput: Configuring file slots as final step...")
+        
+        # Clear existing file slots (except the first one) - use correct Blender API
+        # NOTE: file_slots.remove() expects a socket, not a file slot
+        # We need to remove via the actual socket inputs
+        while len(file_output.file_slots) > 1:
+            try:
+                # Remove via the socket, not the file slot directly
+                file_output.inputs.remove(file_output.inputs[-1])
+            except (RuntimeError, IndexError, ValueError):
+                # If removal fails, break and work with what we have
+                break
+
+        # EXR MULTILAYER FIRST SLOT FIX: Remove the default first slot entirely
+        # The default first slot has a bug where input name and slot path don't sync
+        # By removing and recreating it, the new slot behaves properly (like a "second" slot)
+        if len(file_output.file_slots) > 0:
+            print("Shotput: Removing problematic default first slot for EXR multilayer")
+            file_output.inputs.remove(file_output.inputs[0])
+            print(f"Shotput: After removal: {len(file_output.file_slots)} slots remaining")
+
+        # Configure file slots for each enabled channel using the working slot recreation approach
+        for i, channel_name in enumerate(enabled_channel_names):
+            # Map certain channels to better names for compositing
+            display_name = "depth" if channel_name == "z" else channel_name
+            
+            # Add new slot with desired name (all slots now work properly)
+            new_slot = file_output.file_slots.new(display_name)
+            print(f"Shotput: Added slot {i}: input='{file_output.inputs[i].name}', slot='{file_output.file_slots[i].path}', expected='{display_name}'")
+
+        # Force a scene update to ensure slot names persist
+        bpy.context.view_layer.update()
+        
+        # Double-check that the first slot name stuck (and force it again if needed)
+        if len(enabled_channel_names) > 0:
+            first_display_name = "depth" if enabled_channel_names[0] == "z" else enabled_channel_names[0]
+            current_first_input = file_output.inputs[0].name
+            current_first_slot = file_output.file_slots[0].path
+            
+            if current_first_input != first_display_name:
+                print(f"Shotput: WARNING - First input reverted to '{current_first_input}', forcing to '{first_display_name}'")
+                file_output.inputs[0].name = first_display_name
+                print(f"Shotput: First input corrected to: '{file_output.inputs[0].name}'")
+            
+            # Final verification: both input and slot should match
+            final_input = file_output.inputs[0].name
+            final_slot = file_output.file_slots[0].path
+            print(f"Shotput: Final verification: input='{final_input}', slot='{final_slot}'")
+          # Final verification of slot paths
+        final_slot_paths = [slot.path for slot in file_output.file_slots]
+        final_input_names = [inp.name for inp in file_output.inputs]
+        
+        # Create display list of actual channel names used in slots
+        display_channel_names = ["depth" if name == "z" else name for name in enabled_channel_names]
+
         print(f"Shotput: Created data passes node '{node_label}' with {len(enabled_data_passes)} passes ({len(enabled_channel_names)} channels)")
         print(f"Shotput: Forced format: {data_format} for full float precision (UI setting: {shotput_props.output_format})")
         print(f"Shotput: Base path set to: {file_output.base_path}")
-        print(f"Shotput: Channels: {', '.join(enabled_channel_names)}")
+        print(f"Shotput: Final slot paths: {final_slot_paths}")
+        print(f"Shotput: Final input names: {final_input_names}")
+        print(f"Shotput: Expected channels: {display_channel_names}")
         logger.info(f"Created data passes file output node '{node_label}' with {len(enabled_data_passes)} passes using {data_format}")
         
         # Select the new node
