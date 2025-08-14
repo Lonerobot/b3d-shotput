@@ -1,4 +1,5 @@
 import bpy
+from pathlib import Path
 
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
@@ -261,7 +262,7 @@ class OT_Update_Version(bpy.types.Operator):
             
             # Update each file slot
             for i, slot in enumerate(node.file_slots):
-                # Get the pass name from stored passes if available
+                # Get the pass name from stored passes if available, otherwise defaults
                 pass_name = None
                 if i < len(node_props.stored_passes):
                     pass_name = node_props.stored_passes[i].name
@@ -599,10 +600,215 @@ class OT_Preview_Paths(bpy.types.Operator):
         row.label(text=self.data_path)
 
 
+class OT_Load_Preset(bpy.types.Operator):
+    bl_idname = "shotput.load_preset"
+    bl_label = "Load Preset"
+    bl_description = "Load Shotput preset from JSON file"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    filepath: bpy.props.StringProperty(
+        name="File Path",
+        description="Path to the preset file",
+        subtype='FILE_PATH'
+    )
+    
+    filter_glob: bpy.props.StringProperty(
+        default="*.json",
+        options={'HIDDEN'}
+    )
+    
+    def execute(self, context):
+        try:
+            import json
+            from ..utils.defaults import is_valid_shotput_preset
+            
+            # Load JSON file
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Validate preset structure
+            if not is_valid_shotput_preset(data):
+                self.report({'ERROR'}, "Invalid Shotput preset file structure")
+                return {'CANCELLED'}
+            
+            # Apply preset to scene properties
+            scene = context.scene
+            if not hasattr(scene, 'shotput'):
+                self.report({'ERROR'}, "Shotput properties not found")
+                return {'CANCELLED'}
+            
+            props = scene.shotput
+            
+            # Clear existing pass collections
+            props.core_passes.clear()
+            props.aov_passes.clear()
+            
+            # Load core passes
+            for pass_name in data.get("core_passes", []):
+                item = props.core_passes.add()
+                item.name = pass_name
+            
+            # Load AOV passes
+            for pass_name in data.get("aovs", []):
+                item = props.aov_passes.add()
+                item.name = pass_name
+            
+            # Load other properties
+            if "render_layer" in data:
+                props.render_layer = data["render_layer"]
+            if "variant" in data:
+                props.variant = data["variant"]
+            if "core_override" in data:
+                props.core_override = data["core_override"]
+            if "aov_override" in data:
+                props.aov_override = data["aov_override"]
+            if "root_folder_token" in data:
+                props.root_folder_token = data["root_folder_token"]
+            if "file_name_token" in data:
+                props.file_name_token = data["file_name_token"]
+            if "default_file_format" in data:
+                props.output_format = data["default_file_format"]
+            
+            # Load data pass boolean properties
+            data_passes = data.get("data_passes", [])
+            props.z = "z" in data_passes
+            props.mist = "mist" in data_passes
+            props.normal = "normal" in data_passes
+            props.vector = "vector" in data_passes
+            props.position = "position" in data_passes
+            props.occlusion = "occlusion" in data_passes
+            props.crypto_object = "crypto_object" in data_passes
+            props.crypto_material = "crypto_material" in data_passes
+            props.crypto_asset = "crypto_asset" in data_passes
+            
+            # Load create_composite_from_core if present (new property)
+            if "create_composite_from_core" in data:
+                props.create_composite_from_core = data["create_composite_from_core"]
+            
+            # Load UI expansion states if present (optional)
+            if "expand_core_ui" in data:
+                props.expand_core_ui = data["expand_core_ui"]
+            if "expand_aov_ui" in data:
+                props.expand_aov_ui = data["expand_aov_ui"]
+            if "expand_data_ui" in data:
+                props.expand_data_ui = data["expand_data_ui"]
+            
+            preset_name = Path(self.filepath).stem
+            self.report({'INFO'}, f"Loaded preset '{preset_name}' successfully")
+            logger.info(f"Loaded Shotput preset from: {self.filepath}")
+            
+            return {'FINISHED'}
+            
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to load preset: {str(e)}")
+            logger.error(f"Error loading preset: {e}")
+            return {'CANCELLED'}
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
+class OT_Save_Preset(bpy.types.Operator):
+    bl_idname = "shotput.save_preset"
+    bl_label = "Save Preset"
+    bl_description = "Save current Shotput settings as JSON preset file"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    filepath: bpy.props.StringProperty(
+        name="File Path",
+        description="Path to save the preset file",
+        subtype='FILE_PATH'
+    )
+    
+    filter_glob: bpy.props.StringProperty(
+        default="*.json",
+        options={'HIDDEN'}
+    )
+    
+    def execute(self, context):
+        try:
+            import json
+            from pathlib import Path
+            
+            scene = context.scene
+            if not hasattr(scene, 'shotput'):
+                self.report({'ERROR'}, "Shotput properties not found")
+                return {'CANCELLED'}
+            
+            props = scene.shotput
+            
+            # Build preset data structure
+            preset_data = {
+                "_info": f"Shotput preset created from Blender scene: {scene.name}",
+                "core_passes": [item.name for item in props.core_passes],
+                "aovs": [item.name for item in props.aov_passes],
+                "data_passes": [],
+                "render_layer": props.render_layer,
+                "variant": props.variant,
+                "core_override": props.core_override,
+                "aov_override": props.aov_override,
+                "root_folder_token": props.root_folder_token,
+                "file_name_token": props.file_name_token,
+                "default_file_format": props.output_format,
+                "create_composite_from_core": props.create_composite_from_core,
+                "expand_core_ui": props.expand_core_ui,
+                "expand_aov_ui": props.expand_aov_ui,
+                "expand_data_ui": props.expand_data_ui
+            }
+            
+            # Add data passes based on boolean properties
+            data_pass_mapping = {
+                "z": props.z,
+                "mist": props.mist,
+                "normal": props.normal,
+                "vector": props.vector,
+                "position": props.position,
+                "occlusion": props.occlusion,
+                "crypto_object": props.crypto_object,
+                "crypto_material": props.crypto_material,
+                "crypto_asset": props.crypto_asset
+            }
+            
+            for pass_name, enabled in data_pass_mapping.items():
+                if enabled:
+                    preset_data["data_passes"].append(pass_name)
+            
+            # Ensure the file has .json extension
+            filepath = Path(self.filepath)
+            if filepath.suffix.lower() != '.json':
+                filepath = filepath.with_suffix('.json')
+            
+            # Write JSON file with nice formatting
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(preset_data, f, indent=2, ensure_ascii=False)
+            
+            preset_name = filepath.stem
+            self.report({'INFO'}, f"Saved preset '{preset_name}' successfully")
+            logger.info(f"Saved Shotput preset to: {filepath}")
+            
+            return {'FINISHED'}
+            
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to save preset: {str(e)}")
+            logger.error(f"Error saving preset: {e}")
+            return {'CANCELLED'}
+    
+    def invoke(self, context, event):
+        # Set default filename
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.filepath = f"shotput_preset_{timestamp}.json"
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
 classes = (
     OT_Update_Version,
     OT_Token_Help,
     OT_Preview_Paths,
+    OT_Load_Preset,
+    OT_Save_Preset,
 )
 
 

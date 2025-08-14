@@ -311,7 +311,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
     def draw(self, context):
         layout = self.layout
-        layout.scale_y = 1.1
+        # layout.scale_y = 1.1
         shotput = context.scene.shotput
 
         # Welcome/Description Box
@@ -442,6 +442,21 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             col.prop(shotput, "crypto_object", text="Cryptomatte Object")
             col.prop(shotput, "crypto_material", text="Cryptomatte Material")
             col.prop(shotput, "crypto_asset", text="Cryptomatte Asset")
+
+        # Preset Management Box
+        box = layout.box()
+        box.label(text="Preset Management", icon='PRESET')
+        
+        # Multi-line description with smaller text
+        col = box.column(align=True)
+        col.scale_y = 0.8
+        col.label(text="Save and load custom Shotput configurations")
+        col.label(text="as JSON presets for reuse across projects.")
+        
+        # Preset buttons
+        row = box.row()
+        row.operator("shotput.save_preset", icon='EXPORT', text="Save Preset")
+        row.operator("shotput.load_preset", icon='IMPORT', text="Load Preset")
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):

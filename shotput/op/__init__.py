@@ -5,7 +5,7 @@ from .create_core_passes import OT_Create_Core_Passes
 from .create_aov_passes import OT_Create_AOV_Passes
 from .create_data_passes import OT_Create_Data_Passes
 from .scan_shader_aovs import OT_Scan_Shader_AOVs
-from .versioning import OT_Update_Version, OT_Preview_Paths, OT_Token_Help
+from .versioning import OT_Update_Version, OT_Preview_Paths, OT_Token_Help, OT_Load_Preset, OT_Save_Preset
 
 
 import bpy
@@ -19,6 +19,8 @@ classes = (
         OT_Update_Version,
         OT_Preview_Paths,
         OT_Token_Help,
+        OT_Load_Preset,
+        OT_Save_Preset,
         )
 
 
