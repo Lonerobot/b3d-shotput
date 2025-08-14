@@ -11,6 +11,11 @@ class ShotputPassItem(bpy.types.PropertyGroup):
 
 # Node-level property group for File Output Nodes  
 class ShotputFileOutputProperties(bpy.types.PropertyGroup):
+    shotput_version: bpy.props.StringProperty(
+        name="Shotput Version",
+        default="",
+        description="Version of Shotput that created this node"
+    )
     render_layer: bpy.props.StringProperty(
         name="Render Layer"
     )

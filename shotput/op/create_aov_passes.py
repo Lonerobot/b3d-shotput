@@ -65,6 +65,10 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Set up Shotput properties on the node
         node_props = file_output.shotput_data
         
+        # Set the Shotput version
+        from .. import bl_info
+        node_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
+        
         # Copy scene properties to node
         node_props.render_layer = shotput_props.render_layer
         node_props.variant = shotput_props.variant
