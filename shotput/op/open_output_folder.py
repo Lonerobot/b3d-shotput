@@ -3,11 +3,18 @@ import bpy
 
 from pathlib import Path
 from ..utils.path_utils import PathUtils
-from ..utils.common import ShowMessageBox
 from ..utils.token_parser import TokenParser
 
 from ..utils.log import LoggerFactory
 logger = LoggerFactory.logger_obj()
+
+
+def show_message_box(message="", title="Message Box", icon='INFO'):
+    """Show a popup message box to the user"""
+    def draw(self, context):
+        self.layout.label(text=message)
+    
+    bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
 class OT_Open_Output_Folder(bpy.types.Operator):
     bl_idname = "shotput.open_output_folder"
@@ -113,7 +120,7 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                     subprocess.run(['explorer', str(output_path)], check=False)
                     self.report({'INFO'}, f"Created and opened folder: {output_path}")
                 except Exception as e:
-                    ShowMessageBox(
+                    show_message_box(
                         message=f"Directory doesn't exist and couldn't be created:\n{output_path}\n\nError: {str(e)}", 
                         title="Directory Not Found"
                     )
@@ -121,7 +128,7 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                     
         except Exception as e:
             logger.error(f"Error parsing root folder token: {str(e)}")
-            ShowMessageBox(
+            show_message_box(
                 message=f"Error parsing root folder token:\n{node_props.root_folder_token}\n\nError: {str(e)}", 
                 title="Token Parsing Error"
             )

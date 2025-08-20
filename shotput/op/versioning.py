@@ -126,37 +126,37 @@ class OT_Update_Version(bpy.types.Operator):
                 node.name.startswith('Shotput_'))
     
     def _check_multiple_composite_nodes(self, tree):
-        """Check for multiple connected composite nodes and return warning message if found"""
-        # Find all composite nodes that have incoming connections
-        connected_shotput_composites = []
-        connected_regular_composites = []
+        """Check for multiple composite nodes and return warning message if found"""
+        # Count all composite nodes (Shotput and regular)
+        shotput_composite_nodes = []
+        regular_composite_nodes = []
         
         for node in tree.nodes:
-            if node.type == 'COMPOSITE' and self._has_incoming_connections(node):
+            if node.type == 'COMPOSITE':
                 if self._is_shotput_composite_node(node):
-                    connected_shotput_composites.append(node)
+                    shotput_composite_nodes.append(node)
                 else:
-                    connected_regular_composites.append(node)
+                    regular_composite_nodes.append(node)
         
-        total_connected_count = len(connected_shotput_composites) + len(connected_regular_composites)
+        total_composite_count = len(shotput_composite_nodes) + len(regular_composite_nodes)
         
-        if total_connected_count > 1:
+        if total_composite_count > 1:
             # Build warning message
             warning_parts = []
-            if len(connected_shotput_composites) > 1:
-                warning_parts.append(f"{len(connected_shotput_composites)} Shotput composite nodes")
-            elif len(connected_shotput_composites) == 1:
+            if len(shotput_composite_nodes) > 1:
+                warning_parts.append(f"{len(shotput_composite_nodes)} Shotput composite nodes")
+            elif len(shotput_composite_nodes) == 1:
                 warning_parts.append("1 Shotput composite node")
             
-            if len(connected_regular_composites) > 1:
-                warning_parts.append(f"{len(connected_regular_composites)} regular composite nodes")
-            elif len(connected_regular_composites) == 1:
+            if len(regular_composite_nodes) > 1:
+                warning_parts.append(f"{len(regular_composite_nodes)} regular composite nodes")
+            elif len(regular_composite_nodes) == 1:
                 warning_parts.append("1 regular composite node")
             
-            warning_msg = f"Multiple connected composite nodes detected: {' and '.join(warning_parts)}. This may cause rendering conflicts."
+            warning_msg = f"Multiple composite nodes detected: {' and '.join(warning_parts)}. This may cause rendering conflicts."
             
             # Log warning for debugging
-            logger.warning(f"Multiple connected composite nodes found in scene: {len(connected_shotput_composites)} Shotput, {len(connected_regular_composites)} regular")
+            logger.warning(f"Multiple composite nodes found in scene: {len(shotput_composite_nodes)} Shotput, {len(regular_composite_nodes)} regular")
             
             return warning_msg
         
@@ -226,10 +226,10 @@ class OT_Update_Version(bpy.types.Operator):
             token_parser = TokenParser(node_props)
             
             # Parse the root folder token to get base path
-            base_path = token_parser.parse_token(node_props.root_folder_token, passname=node_props.pass_name)
+            base_path = token_parser.parse_token(node_props.root_folder_token, passname="composite")
             
             # Parse the file name token
-            filename = token_parser.parse_token(node_props.file_name_token, passname=node_props.pass_name)
+            filename = token_parser.parse_token(node_props.file_name_token, passname="composite")
             
             # Combine to create full render path
             full_path = f"{base_path}/{filename}"
@@ -407,7 +407,7 @@ class OT_Token_Help(bpy.types.Operator):
     bl_options = {'REGISTER'}
     
     def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=550)
+        return context.window_manager.invoke_popup(self, width=650)
     
     def draw(self, context):
         layout = self.layout
@@ -457,7 +457,7 @@ class OT_Token_Help(bpy.types.Operator):
                 try:
                     value = parser._resolve_token(token)
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.25)
                     split.label(text=f"{{{token}}}", icon='DOT')
                     split = split.split(factor=0.55)
                     split.label(text=desc)
@@ -751,6 +751,9 @@ class OT_Load_Preset(bpy.types.Operator):
             if "expand_data_ui" in data:
                 props.expand_data_ui = data["expand_data_ui"]
             
+            # Note: file_format_overrides and data_format_settings are loaded automatically
+            # by defaults.py when creating nodes - they don't need to be stored on scene props
+            
             preset_name = Path(self.filepath).stem
             self.report({'INFO'}, f"Loaded preset '{preset_name}' successfully")
             logger.info(f"Loaded Shotput preset from: {self.filepath}")
@@ -809,6 +812,15 @@ class OT_Save_Preset(bpy.types.Operator):
                 "root_folder_token": props.root_folder_token,
                 "file_name_token": props.file_name_token,
                 "default_file_format": props.output_format,
+                "file_format_overrides": {
+                    "core": "UI",
+                    "aov": "UI",
+                    "data": "OPEN_EXR_MULTILAYER"
+                },
+                "data_format_settings": {
+                    "color_depth": "32",
+                    "exr_codec": "ZIP"
+                },
                 "create_composite_from_core": props.create_composite_from_core,
                 "expand_core_ui": props.expand_core_ui,
                 "expand_aov_ui": props.expand_aov_ui,

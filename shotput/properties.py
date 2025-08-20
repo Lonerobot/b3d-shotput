@@ -27,17 +27,6 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     pass_name: bpy.props.StringProperty(
         name="Pass Name"
     )
-    pass_type: bpy.props.EnumProperty(
-        name="Pass Type",
-        items=[
-            ('CORE', "Core", "Core render passes"),
-            ('AOV', "AOV", "Arbitrary Output Variable passes"),
-            ('DATA', "Data", "Data passes"),
-            ('COMPOSITE', "Composite", "Composite node with file output")
-        ],
-        default='CORE',
-        description="Type of pass node"
-    )
     variant: bpy.props.StringProperty(
         name="Variant"
     )
@@ -51,11 +40,6 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     stored_passes_index: bpy.props.IntProperty(
         name="Stored Passes Index", 
         default=0
-    )
-    expand_stored_passes_ui: bpy.props.BoolProperty(
-        name="Expand Stored Passes UI",
-        default=False,
-        description="Show/hide the stored passes list in the node UI"
     )
 
 
@@ -163,14 +147,14 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
     create_composite_from_core: bpy.props.BoolProperty(
         name="Create Composite Output From Core",
         description="Create a composite output node when creating core passes",
-        default=True
+        default=False
     )
     
     # Lazy hook-up option
     lazy_hook_up: bpy.props.BoolProperty(
         name="Lazy Hook-up",
         description="Automatically connect File Output nodes to render layer outputs when created",
-        default=True
+        default=False
     )
     
     # UI expansion states for main panel

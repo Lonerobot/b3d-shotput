@@ -77,7 +77,6 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
-        node_props.pass_type = "CORE"  # Set the pass type
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
@@ -249,8 +248,8 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         composite_node.color = (0.8, 0.4, 0.8)  # Pink color
         composite_node.width = 300  # Smaller since it's just routing
         
-        # Position the node at the same Y level as the core node
-        composite_node.location = (400, 120)
+        # Position the node above the core passes
+        composite_node.location = (800, 200)
         
         # Set up Shotput properties on the composite node
         comp_props = composite_node.shotput_data
@@ -265,7 +264,6 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.root_folder_token = shotput_props.root_folder_token
         comp_props.file_name_token = shotput_props.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
-        comp_props.pass_type = "COMPOSITE"  # Set the pass type to COMPOSITE
         
         # Add single stored pass for composite (for UI consistency)
         comp_props.stored_passes.clear()

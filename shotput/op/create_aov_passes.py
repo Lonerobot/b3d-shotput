@@ -76,7 +76,6 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
-        node_props.pass_type = "AOV"  # Set the pass type
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
