@@ -1,4 +1,4 @@
-# 🎬 Shotput v1.0.1 - "The Studio Edition"
+# 🎬 Shotput v1.0.1
 
 > **Professional render output management for Blender 4.4+**
 

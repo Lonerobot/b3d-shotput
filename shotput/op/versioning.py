@@ -222,6 +222,8 @@ class OT_Update_Version(bpy.types.Operator):
     def _update_scene_render_path(self, context, composite_node):
         """Update scene render filepath using composite node properties"""
         try:
+            from ..utils.defaults import get_sequence_padding
+            
             node_props = composite_node.shotput_data
             token_parser = TokenParser(node_props)
             
@@ -231,8 +233,27 @@ class OT_Update_Version(bpy.types.Operator):
             # Parse the file name token
             filename = token_parser.parse_token(node_props.file_name_token, passname="composite")
             
-            # Combine to create full render path
-            full_path = f"{base_path}/{filename}"
+            # Get sequence padding from preferences
+            sequence_padding = get_sequence_padding()
+            
+            # Get the current UI output format for file extension
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                output_format = scene.shotput.output_format
+            else:
+                output_format = 'PNG'  # Default fallback
+            
+            # Map format to file extension
+            format_extensions = {
+                'PNG': 'png',
+                'JPEG': 'jpg', 
+                'OPEN_EXR': 'exr',
+                'OPEN_EXR_MULTILAYER': 'exr'
+            }
+            file_extension = format_extensions.get(output_format, 'png')
+            
+            # Combine to create full render path with sequence padding and extension
+            full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
             
             # Update scene render settings
             context.scene.render.filepath = full_path
