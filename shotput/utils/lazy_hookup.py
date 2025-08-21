@@ -71,9 +71,15 @@ def fuzzy_match_output(output_name, target_names):
     """
     output_lower = output_name.lower()
     
+    # Debug logging for cryptomatte channels
+    if 'crypto' in output_lower:
+        logger.debug(f"Fuzzy matching cryptomatte output '{output_name}' against targets: {target_names}")
+    
     # Direct exact matches (case insensitive)
     for target in target_names:
         if output_lower == target.lower():
+            if 'crypto' in output_lower:
+                logger.debug(f"Exact match found: '{output_name}' -> '{target}'")
             return target
     
     # Special fuzzy matching rules
@@ -103,6 +109,14 @@ def fuzzy_match_output(output_name, target_names):
         target_lower = target.lower()
         if 'crypto' in target_lower and output_lower == target_lower:
             return target
+    
+    # Special handling for cryptomatte numbered channels - must match numbers exactly
+    if 'crypto' in output_lower:
+        for target in target_names:
+            target_lower = target.lower()
+            if 'crypto' in target_lower and output_lower == target_lower:
+                # Exact match for numbered cryptomatte channels
+                return target
     
     # Check fuzzy rules
     for target in target_names:
@@ -137,18 +151,48 @@ def connect_file_output_to_render_layer(context, file_output_node, target_pass_n
     if not render_layer_node:
         logger.warning("Cannot connect: no render layer node found")
         return {}
-    
+
     # Get target pass names
     if target_pass_names is None:
         target_pass_names = []
         
-        # Try to get from stored passes first
-        if hasattr(file_output_node, 'shotput_data') and file_output_node.shotput_data.stored_passes:
-            target_pass_names = [item.name for item in file_output_node.shotput_data.stored_passes if item.name.strip()]
+        # Special handling for data pass nodes - expand cryptomatte passes
+        is_data_pass_node = file_output_node.name == "Shotput_Data_Passes"
         
-        # Fallback to file slot names
-        if not target_pass_names:
-            target_pass_names = [slot.path for slot in file_output_node.file_slots if slot.path.strip()]
+        if is_data_pass_node and hasattr(file_output_node, 'shotput_data') and file_output_node.shotput_data.stored_passes:
+            # For data passes, expand cryptomatte and map display names to channel names
+            for pass_item in file_output_node.shotput_data.stored_passes:
+                if pass_item.name.strip():
+                    pass_name = pass_item.name.strip()
+                    
+                    # Handle cryptomatte expansion (same logic as sync operator and create_data_passes)
+                    if pass_name == "Cryptomatte Object":
+                        target_pass_names.extend(['CryptoObject00', 'CryptoObject01', 'CryptoObject02'])
+                    elif pass_name == "Cryptomatte Material":
+                        target_pass_names.extend(['CryptoMaterial00', 'CryptoMaterial01', 'CryptoMaterial02'])
+                    elif pass_name == "Cryptomatte Asset":
+                        target_pass_names.extend(['CryptoAsset00', 'CryptoAsset01', 'CryptoAsset02'])
+                    elif pass_name == "Depth":
+                        target_pass_names.append("depth")  # Map "Depth" to "depth" for compositing
+                    else:
+                        # Map display names back to channel names for data passes
+                        channel_mapping = {
+                            "Mist": "mist",
+                            "Normal": "normal", 
+                            "Motion Vector": "vector",
+                            "Position": "position",
+                            "Ambient Occlusion": "occlusion"
+                        }
+                        channel_name = channel_mapping.get(pass_name, pass_name.lower())
+                        target_pass_names.append(channel_name)
+        else:
+            # Try to get from stored passes first (non-data passes)
+            if hasattr(file_output_node, 'shotput_data') and file_output_node.shotput_data.stored_passes:
+                target_pass_names = [item.name for item in file_output_node.shotput_data.stored_passes if item.name.strip()]
+            
+            # Fallback to file slot names
+            if not target_pass_names:
+                target_pass_names = [slot.path for slot in file_output_node.file_slots if slot.path.strip()]
     
     if not target_pass_names:
         logger.warning("No target pass names available for connection")
@@ -161,16 +205,24 @@ def connect_file_output_to_render_layer(context, file_output_node, target_pass_n
     logger.info(f"Target passes: {target_pass_names}")
     logger.info(f"Available outputs: {[output.name for output in render_layer_node.outputs]}")
     
+    # For data passes, also log the expansion logic used
+    if file_output_node.name == "Shotput_Data_Passes" and target_pass_names:
+        logger.debug(f"Data pass node detected - used cryptomatte expansion and channel name mapping")
+    
     # Try to match each file slot to an output
     for slot_index, target_pass in enumerate(target_pass_names):
         if slot_index >= len(file_output_node.file_slots):
+            logger.debug(f"Skipping slot {slot_index} - exceeds available file slots ({len(file_output_node.file_slots)})")
             break
+            
+        logger.debug(f"Trying to match slot {slot_index}: '{target_pass}'")
             
         # Find matching output socket
         matched_output = None
         for output_socket in render_layer_node.outputs:
             if fuzzy_match_output(output_socket.name, [target_pass]):
                 matched_output = output_socket
+                logger.debug(f"Matched render layer output '{output_socket.name}' to target '{target_pass}'")
                 break
         
         if matched_output:
@@ -184,6 +236,10 @@ def connect_file_output_to_render_layer(context, file_output_node, target_pass_n
                 logger.error(f"Failed to connect '{matched_output.name}' to slot {slot_index}: {e}")
         else:
             logger.debug(f"No matching output found for pass '{target_pass}'")
+            # List all available outputs that contain 'crypto' for debugging
+            crypto_outputs = [out.name for out in render_layer_node.outputs if 'crypto' in out.name.lower()]
+            if crypto_outputs and 'crypto' in target_pass.lower():
+                logger.debug(f"Available cryptomatte outputs: {crypto_outputs}")
     
     if connections_made:
         logger.info(f"Successfully made {len(connections_made)} connections")
