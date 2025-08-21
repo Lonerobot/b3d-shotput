@@ -41,7 +41,7 @@ class OT_Update_Version(bpy.types.Operator):
         
         for node in target_nodes:
             try:
-                if self._update_node_version(node):
+                if self._update_node_version(node, context):
                     updated_count += 1
             except Exception as e:
                 logger.error(f"Failed to update node {node.name}: {e}")
@@ -265,7 +265,7 @@ class OT_Update_Version(bpy.types.Operator):
             logger.error(f"Error updating scene render path: {e}")
             raise
     
-    def _update_node_version(self, node):
+    def _update_node_version(self, node, context):
         """Update the version for a specific node"""
         try:
             node_props = node.shotput_data
@@ -287,7 +287,7 @@ class OT_Update_Version(bpy.types.Operator):
                     logger.debug(f"Updated base path for {node.name}: {new_base_path}")
                 
                 # Update file slot paths if needed
-                self._update_file_slots(node, node_props, token_parser, new_version)
+                self._update_file_slots(node, node_props, token_parser, new_version, context)
             
             logger.info(f"Updated node {node.name} to version {new_version}")
             return True
@@ -332,12 +332,33 @@ class OT_Update_Version(bpy.types.Operator):
             logger.error(f"Error calculating next version: {e}")
             return VersionUtils.versionDefault
     
-    def _update_file_slots(self, node, node_props, token_parser, new_version):
+    def _update_file_slots(self, node, node_props, token_parser, new_version, context):
         """Update file slot paths with new version"""
         try:
+            from ..utils.defaults import get_sequence_padding
+            
             file_token = node_props.file_name_token
             if not file_token:
                 return
+            
+            # Get sequence padding from preferences
+            sequence_padding = get_sequence_padding()
+            
+            # Get the current UI output format for file extension
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                output_format = scene.shotput.output_format
+            else:
+                output_format = 'PNG'  # Default fallback
+            
+            # Map format to file extension
+            format_extensions = {
+                'PNG': 'png',
+                'JPEG': 'jpg', 
+                'OPEN_EXR': 'exr',
+                'OPEN_EXR_MULTILAYER': 'exr'
+            }
+            file_extension = format_extensions.get(output_format, 'png')
             
             # Update each file slot
             for i, slot in enumerate(node.file_slots):
@@ -354,7 +375,8 @@ class OT_Update_Version(bpy.types.Operator):
                 else:
                     new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
                 
-                slot.path = f"{new_filename}_"
+                # Create complete path with sequence padding and extension (no trailing underscore)
+                slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
                 
         except Exception as e:
             logger.error(f"Error updating file slots: {e}")
