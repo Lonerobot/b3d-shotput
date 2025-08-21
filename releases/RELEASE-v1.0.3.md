@@ -1,39 +1,37 @@
-# 🎬 Shotput v1.0.3
+# Shotput v1.0.3 Release Notes
 
-> **Additional bug fix release for file output node path generation**
+**Release Date:** August 21, 2025  
+**Compatibility:** Blender 4.4+  
 
-![Blender](https://img.shields.io/badge/blender-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white)
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+## 🎯 Overview
 
-## 🐛 **Bug Fixes**
+Critical path generation consistency fixes. File paths are now identical whether nodes are created fresh or updated via versioning.
 
-### 🔧 **Fixed: File Output Node Slot Paths for PNG/JPG**
-- **Issue**: File output nodes generated incomplete paths with trailing underscores (e.g., `MyRenderLayer_AO_MAIN_`)
-- **Fixed**: Enhanced `_update_file_slots` method to include proper sequence padding and file extensions
-- **Result**: File output nodes now generate complete paths like `MyRenderLayer_AO_MAIN.####.png`
+## ✨ What's Fixed
 
-### ✨ **What's Improved**
-- Removed trailing underscores from file output slot paths
-- Added proper sequence numbering (`.####.`) to all file output slots
-- Added intelligent file extension detection for PNG, JPEG, and EXR formats
-- Unified path generation logic between composite nodes and file output nodes
+### Path Generation Consistency
+- **Fixed:** File extensions now included during node creation (PNG/JPEG/EXR single)
+- **Before:** `MyRenderLayer_AO_MAIN.####` (creation) vs `MyRenderLayer_AO_MAIN.####.png` (update)
+- **After:** `MyRenderLayer_AO_MAIN.####.png` (both creation and update)
 
-## 📦 **Installation**
+### EXR Multilayer Data Passes  
+- **Fixed:** Versioning now properly handles multichannel EXR format
+- **Result:** Version updates preserve full file paths correctly
 
-Download `shotput-v1.0.3.zip` and install via Blender → Edit → Preferences → Add-ons → Install
+## 🐛 Bug Fixes
 
-## 🔄 **Upgrade from v1.0.1 or v1.0.2**
+- ✅ Path inconsistency between creation and versioning operators
+- ✅ Missing file extensions during node creation  
+- ✅ EXR multilayer versioning breaking multichannel structure
+- ✅ Redundant channel names in paths (from v1.0.2 - still fixed)
 
-Simply install v1.0.3 over the existing installation. Your scenes will automatically benefit from the improved path generation for both composite and file output nodes.
+## 🚀 Installation
 
----
+1. Download `shotput-v1.0.3.zip`
+2. Blender → Preferences → Add-ons → Install  
+3. Enable "Shotput" in add-ons list
 
-## 📚 **Support**
+## 🆘 Support
 
-- **Author**: Pete Addington @ THE LINE STUDIO
-- **License**: Open Source
-- **Support**: Community-driven
-
----
-
-*Built with ❤️ for the Blender community*
+- **Docs:** [lonerobot.github.io/b3d-shotput-docs](https://lonerobot.github.io/b3d-shotput-docs/)
+- **Issues:** [GitHub Issues](https://github.com/Lonerobot/b3d-shotput/issues)

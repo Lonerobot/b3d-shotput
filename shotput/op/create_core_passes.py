@@ -97,20 +97,24 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         sequence_padding = get_sequence_padding()  # Get from preferences
         
         if core_format in ['PNG', 'JPEG']:
-            # PNG/JPEG: base_path = rootpath, file_slots = filename_token + channel + .####
+            # PNG/JPEG: base_path = rootpath, file_slots = filename_token + .#### + extension
             resolved_base_path = token_parser.parse_token(node_props.root_folder_token, passname=area_name)
             file_output.base_path = resolved_base_path
+            
+            # Map format to file extension
+            format_extensions = {
+                'PNG': 'png',
+                'JPEG': 'jpg'
+            }
+            file_extension = format_extensions.get(core_format, 'png')
             
             # Configure file slots for each core pass
             for i, core_pass in enumerate(shotput_props.core_passes):
                 pass_name = core_pass.name
                 
-                # Convert "Beauty" to "rgba" for Nuke compatibility
-                channel_name = "rgba" if pass_name.lower() == "beauty" else pass_name.lower()
-                
                 # Parse the file name token with specific pass name
                 resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=pass_name)
-                file_slot_path = f"{resolved_filename}_{channel_name}.{sequence_padding}"
+                file_slot_path = f"{resolved_filename}.{sequence_padding}.{file_extension}"
                 
                 if i == 0:
                     # Use the default slot for the first pass
@@ -125,7 +129,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 stored_pass.name = core_pass.name
                 
         elif core_format == 'OPEN_EXR':
-            # Single channel EXR: base_path = rootpath, file_slots = filename_token + channel + .####
+            # Single channel EXR: base_path = rootpath, file_slots = filename_token + .#### + extension
             resolved_base_path = token_parser.parse_token(node_props.root_folder_token, passname=area_name)
             file_output.base_path = resolved_base_path
             
@@ -133,12 +137,9 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             for i, core_pass in enumerate(shotput_props.core_passes):
                 pass_name = core_pass.name
                 
-                # Convert "Beauty" to "rgba" for Nuke compatibility
-                channel_name = "rgba" if pass_name.lower() == "beauty" else pass_name.lower()
-                
                 # Parse the file name token with specific pass name
                 resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=pass_name)
-                file_slot_path = f"{resolved_filename}_{channel_name}.{sequence_padding}"
+                file_slot_path = f"{resolved_filename}.{sequence_padding}.exr"
                 
                 if i == 0:
                     # Use the default slot for the first pass

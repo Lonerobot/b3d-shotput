@@ -344,39 +344,84 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
-            # Get the current UI output format for file extension
-            scene = context.scene
-            if hasattr(scene, 'shotput'):
-                output_format = scene.shotput.output_format
-            else:
-                output_format = 'PNG'  # Default fallback
+            # Check the actual node format to determine path logic
+            node_format = node.format.file_format
+            print(f"Shotput: Updating node {node.name} with format {node_format}")
             
-            # Map format to file extension
-            format_extensions = {
-                'PNG': 'png',
-                'JPEG': 'jpg', 
-                'OPEN_EXR': 'exr',
-                'OPEN_EXR_MULTILAYER': 'exr'
-            }
-            file_extension = format_extensions.get(output_format, 'png')
-            
-            # Update each file slot
-            for i, slot in enumerate(node.file_slots):
-                # Get the pass name from stored passes if available, otherwise defaults
-                pass_name = None
-                if i < len(node_props.stored_passes):
-                    pass_name = node_props.stored_passes[i].name
+            if node_format == 'OPEN_EXR_MULTILAYER':
+                # EXR Multilayer: Update base_path only, slots remain as channel names
+                pass_name = node_props.pass_name if hasattr(node_props, 'pass_name') else None
                 
-                # Parse filename with new version using reconstruction method
+                # Parse filename with new version
                 if pass_name:
-                    # Create a temporary token string with the pass name override
                     temp_token = file_token.replace('{passname}', pass_name)
                     new_filename = self._reconstruct_path_with_version(temp_token, new_version, token_parser)
                 else:
                     new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
                 
-                # Create complete path with sequence padding and extension (no trailing underscore)
-                slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
+                # Parse root folder with new version
+                root_token = node_props.root_folder_token
+                if root_token:
+                    if pass_name:
+                        temp_root_token = root_token.replace('{passname}', pass_name)
+                        new_base_path = self._reconstruct_path_with_version(temp_root_token, new_version, token_parser)
+                    else:
+                        new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
+                    
+                    # Update base path with filename and sequence padding
+                    node.base_path = f"{new_base_path}/{new_filename}.{sequence_padding}"
+                    print(f"Shotput: Updated EXR multilayer base_path to: {node.base_path}")
+                
+                # For EXR multilayer, file slots should remain as channel names only
+                # Don't modify slot paths as they contain channel names, not file paths
+                
+            else:
+                # Single file formats (PNG/JPEG/EXR single): Update individual slot paths
+                # Get the current UI output format for file extension
+                scene = context.scene
+                if hasattr(scene, 'shotput'):
+                    output_format = scene.shotput.output_format
+                else:
+                    output_format = 'PNG'  # Default fallback
+                
+                # Map format to file extension
+                format_extensions = {
+                    'PNG': 'png',
+                    'JPEG': 'jpg', 
+                    'OPEN_EXR': 'exr',
+                    'OPEN_EXR_MULTILAYER': 'exr'
+                }
+                file_extension = format_extensions.get(output_format, 'png')
+                
+                # Update base path for single file formats
+                root_token = node_props.root_folder_token
+                if root_token:
+                    pass_name = node_props.pass_name if hasattr(node_props, 'pass_name') else None
+                    if pass_name:
+                        temp_root_token = root_token.replace('{passname}', pass_name)
+                        new_base_path = self._reconstruct_path_with_version(temp_root_token, new_version, token_parser)
+                    else:
+                        new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
+                    
+                    node.base_path = new_base_path
+                
+                # Update each file slot path
+                for i, slot in enumerate(node.file_slots):
+                    # Get the pass name from stored passes if available
+                    pass_name = None
+                    if i < len(node_props.stored_passes):
+                        pass_name = node_props.stored_passes[i].name
+                    
+                    # Parse filename with new version using reconstruction method
+                    if pass_name:
+                        # Create a temporary token string with the pass name override
+                        temp_token = file_token.replace('{passname}', pass_name)
+                        new_filename = self._reconstruct_path_with_version(temp_token, new_version, token_parser)
+                    else:
+                        new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
+                    
+                    # Create complete path with sequence padding and extension
+                    slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
                 
         except Exception as e:
             logger.error(f"Error updating file slots: {e}")
