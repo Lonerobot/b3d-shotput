@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+id = "shotput"
+version = "1.0.4"
+name = "Shotput"
+tagline = "A Blender addon for managing file output nodes for render output"
+type = "add-on"
+maintainer = "Som Render"
+blender_version_min = "4.5.0"
+license = ["SPDX:GPL-3.0-or-later"]
+tags = ["Scene", "Render", "Compositing"]
+
+website = "https://github.com/Lonerobot/b3d-shotput"
+issue_tracker = "https://github.com/Lonerobot/b3d-shotput/issues"
