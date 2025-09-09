@@ -9,7 +9,7 @@ r"""
 #   \__ \ | | | |_| | |) | | (_) |
 #   |___/ |_|  \___/|___/___\___/
                                                 
-# Shotput - A Blender addon for managing file output nodes for render output
+# Shotput - A Blender addon for managing file output nodes
 
 """
 
@@ -20,10 +20,10 @@ bl_info = {
     "blender": (4, 4, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
-    "version": (1, 0, 4),
+    "version": (0, 0, 3),
     "location": "Compositor Tab > Sidebar",
-    "doc_url": "https://www.thelinestudio.com/",
-    "wiki_url": "https://www.thelinestudio.com",
+    "doc_url": "https://www.thelineanimation.com/",
+    "wiki_url": "https://www.thelineanimation.com",
     "warning": "",  # Optional: for development versions
     "support": "COMMUNITY",  # OFFICIAL, COMMUNITY, or TESTING
 }

@@ -37,14 +37,48 @@ class OT_Update_Version(bpy.types.Operator):
             self.report({'WARNING'}, "No Shotput file output nodes found")
             return {'CANCELLED'}
         
-        updated_count = 0
+        # Validate paths before updating any nodes
+        validation_errors = self._validate_node_paths(target_nodes)
+        if validation_errors:
+            # Report all validation errors to user
+            error_summary = f"Path validation failed for {len(validation_errors)} node(s):"
+            detailed_errors = []
+            for node_name, errors in validation_errors.items():
+                detailed_errors.append(f"• {node_name}: {'; '.join(errors)}")
+            
+            full_error_msg = error_summary + "\n" + "\n".join(detailed_errors)
+            self.report({'ERROR'}, full_error_msg)
+            logger.error(f"Path validation errors: {validation_errors}")
+            return {'CANCELLED'}
+        
+        # Separate nodes into linked and non-linked for proper update ordering
+        non_linked_nodes = []
+        linked_nodes = []
         
         for node in target_nodes:
+            if hasattr(node, 'shotput_data') and self._is_path_linked(node.shotput_data):
+                linked_nodes.append(node)
+            else:
+                non_linked_nodes.append(node)
+        
+        updated_count = 0
+        
+        # Update non-linked nodes first (they provide the base paths for linked nodes)
+        for node in non_linked_nodes:
             try:
                 if self._update_node_version(node, context):
                     updated_count += 1
             except Exception as e:
-                logger.error(f"Failed to update node {node.name}: {e}")
+                logger.error(f"Failed to update non-linked node {node.name}: {e}")
+                continue
+        
+        # Then update linked nodes (they depend on the non-linked nodes)
+        for node in linked_nodes:
+            try:
+                if self._update_node_version(node, context):
+                    updated_count += 1
+            except Exception as e:
+                logger.error(f"Failed to update linked node {node.name}: {e}")
                 continue
         
         if updated_count > 0:
@@ -53,6 +87,12 @@ class OT_Update_Version(bpy.types.Operator):
                 mode_text = f"{updated_count} selected node" + ("s" if updated_count != 1 else "")
             else:
                 mode_text = f"all {updated_count} node" + ("s" if updated_count != 1 else "")
+            
+            # Add path linking info if relevant
+            if linked_nodes:
+                linked_count = sum(1 for node in linked_nodes if hasattr(node, 'shotput_data') and self._is_path_linked(node.shotput_data))
+                if linked_count > 0:
+                    mode_text += f" ({linked_count} path-linked)"
             
             success_msg = f"Updated {mode_text} to next version"
             
@@ -63,7 +103,7 @@ class OT_Update_Version(bpy.types.Operator):
             else:
                 self.report({'INFO'}, success_msg)
             
-            logger.info(f"Successfully updated {updated_count} Shotput nodes")
+            logger.info(f"Successfully updated {updated_count} Shotput nodes ({len(non_linked_nodes)} non-linked, {len(linked_nodes)} linked)")
             
             # Handle composite node and scene render path update
             self._handle_composite_render_path(context, tree)
@@ -76,6 +116,148 @@ class OT_Update_Version(bpy.types.Operator):
                 self.report({'WARNING'}, "No nodes were updated")
             
         return {'FINISHED'}
+    
+    def _validate_node_paths(self, nodes):
+        """
+        Validate path tokens for all nodes before processing.
+        
+        Args:
+            nodes: List of nodes to validate
+            
+        Returns:
+            Dict mapping node names to lists of validation errors, empty if all valid
+        """
+        validation_errors = {}
+        
+        for node in nodes:
+            if not hasattr(node, 'shotput_data'):
+                continue
+                
+            node_props = node.shotput_data
+            node_errors = []
+            
+            # Validate root folder token
+            root_token = getattr(node_props, 'root_folder_token', '')
+            if root_token:
+                token_errors = self._validate_token_string(root_token, "Root Folder")
+                node_errors.extend(token_errors)
+            
+            # Validate file name token
+            file_token = getattr(node_props, 'file_name_token', '')
+            if file_token:
+                token_errors = self._validate_token_string(file_token, "File Name")
+                node_errors.extend(token_errors)
+            
+            # Check for linked node validity if path-linked
+            if self._is_path_linked(node_props):
+                linked_errors = self._validate_linked_node(node_props)
+                node_errors.extend(linked_errors)
+            
+            # Only add to validation_errors if there are actual errors
+            if node_errors:
+                validation_errors[node.name] = node_errors
+        
+        return validation_errors
+    
+    def _validate_token_string(self, token_string, field_name):
+        """
+        Validate a token string for common issues.
+        
+        Args:
+            token_string: Token string to validate
+            field_name: Human-readable field name for error messages
+            
+        Returns:
+            List of validation error messages
+        """
+        errors = []
+        
+        if not token_string.strip():
+            return errors  # Empty tokens are allowed
+        
+        import re
+        
+        # Check for unmatched braces
+        open_braces = token_string.count('{')
+        close_braces = token_string.count('}')
+        
+        if open_braces != close_braces:
+            if open_braces > close_braces:
+                errors.append(f"{field_name} has {open_braces - close_braces} unmatched opening brace(s) '{{'. Example issue: '{{workdir/{{passname}}'")
+            else:
+                errors.append(f"{field_name} has {close_braces - open_braces} unmatched closing brace(s) '}}'. Example issue: 'workdir}}/{{passname}}'")
+        
+        # Check for malformed tokens (braces without content or invalid nesting)
+        if '{}' in token_string:
+            errors.append(f"{field_name} contains empty token '{{}}'. Tokens must have content like '{{workdir}}'")
+        
+        # Check for nested braces (not supported)
+        if re.search(r'\{[^}]*\{', token_string) or re.search(r'\}[^{]*\}', token_string):
+            errors.append(f"{field_name} contains nested or malformed braces. Tokens cannot be nested")
+        
+        # Check for invalid path characters in the resolved token structure
+        # Remove valid tokens temporarily to check the static parts
+        temp_string = re.sub(r'\{[^}]+\}', 'TOKEN', token_string)
+        
+        # Check for invalid characters in non-token parts
+        invalid_chars = ['<', '>', '"', '|', '?', '*']
+        for char in invalid_chars:
+            if char in temp_string:
+                errors.append(f"{field_name} contains invalid path character '{char}'. Remove this character")
+        
+        # Check for double slashes in static parts
+        if '//' in temp_string or '\\\\' in temp_string:
+            errors.append(f"{field_name} contains double slashes. Use single slashes for path separators")
+        
+        # Check for tokens that might resolve to problematic paths
+        problematic_patterns = [
+            (r'\{[^}]*\}/\{[^}]*\}/', "Consider if multiple consecutive tokens create valid paths"),
+            (r'^\{[^}]*\}$', "Token-only strings should be validated manually"),
+        ]
+        
+        for pattern, warning in problematic_patterns:
+            if re.search(pattern, token_string):
+                # These are warnings, not hard errors - maybe skip for now
+                pass
+        
+        return errors
+    
+    def _validate_linked_node(self, node_props):
+        """
+        Validate linked node configuration.
+        
+        Args:
+            node_props: Node properties to validate
+            
+        Returns:
+            List of validation error messages
+        """
+        errors = []
+        
+        linked_node_name = getattr(node_props, 'linked_node', '')
+        if not linked_node_name or linked_node_name == 'NONE':
+            errors.append("Path-linked is enabled but no linked node is selected")
+            return errors
+        
+        # Try to find the linked node
+        try:
+            scene = bpy.context.scene
+            if not scene or not scene.node_tree:
+                errors.append("Cannot validate linked node: no scene or node tree available")
+                return errors
+            
+            linked_node = scene.node_tree.nodes.get(linked_node_name)
+            if not linked_node:
+                errors.append(f"Linked node '{linked_node_name}' not found in scene")
+            elif linked_node.type != 'OUTPUT_FILE':
+                errors.append(f"Linked node '{linked_node_name}' is not a File Output node")
+            elif not hasattr(linked_node, 'shotput_data'):
+                errors.append(f"Linked node '{linked_node_name}' is not a Shotput node")
+            
+        except Exception as e:
+            errors.append(f"Error validating linked node: {e}")
+        
+        return errors
     
     def _get_target_nodes(self, tree):
         """Get target nodes: selected Shotput nodes first, all Shotput nodes if none selected"""
@@ -227,11 +409,14 @@ class OT_Update_Version(bpy.types.Operator):
             node_props = composite_node.shotput_data
             token_parser = TokenParser(node_props)
             
-            # Parse the root folder token to get base path
-            base_path = token_parser.parse_token(node_props.root_folder_token, passname="composite")
+            # Get the actual pass name from the node properties
+            pass_name = getattr(node_props, 'pass_name', 'composite')
             
-            # Parse the file name token
-            filename = token_parser.parse_token(node_props.file_name_token, passname="composite")
+            # Parse the root folder token to get base path
+            base_path = token_parser.parse_token(node_props.root_folder_token, passname=pass_name)
+            
+            # Parse the file name token (always use filename-only logic for scene render path)
+            filename = token_parser.parse_filename_only(node_props.file_name_token, passname=pass_name)
             
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
@@ -269,6 +454,71 @@ class OT_Update_Version(bpy.types.Operator):
         """Update the version for a specific node"""
         try:
             node_props = node.shotput_data
+            
+            # Check if this node is path-linked
+            if self._is_path_linked(node_props):
+                return self._update_linked_node_version(node, node_props, context)
+            else:
+                return self._update_normal_node_version(node, node_props, context)
+            
+        except Exception as e:
+            logger.error(f"Error updating node {node.name}: {e}")
+            return False
+    
+    def _is_path_linked(self, node_props):
+        """Check if a node is path-linked to another node"""
+        return (hasattr(node_props, 'path_linked') and 
+                getattr(node_props, 'path_linked', False) and
+                hasattr(node_props, 'linked_node') and
+                getattr(node_props, 'linked_node', '') not in ['', 'NONE'])
+    
+    def _update_linked_node_version(self, node, node_props, context):
+        """Update version for a path-linked node - uses linked node's version"""
+        try:
+            # Get the linked node
+            linked_node_name = getattr(node_props, 'linked_node', '')
+            scene = context.scene
+            if not scene or not scene.node_tree:
+                logger.error("No scene or node tree available")
+                return False
+            
+            linked_node = scene.node_tree.nodes.get(linked_node_name)
+            if not linked_node or linked_node.type != 'OUTPUT_FILE':
+                logger.error(f"Linked node '{linked_node_name}' not found or not a File Output node")
+                return False
+            
+            # Get linked node's version
+            linked_props = linked_node.shotput_data
+            linked_version = getattr(linked_props, 'version', VersionUtils.versionDefault)
+            
+            # Update this node's version to match
+            node_props.version = linked_version
+            
+            # For File Output nodes, update base path using linked path + append path
+            if node.type == 'OUTPUT_FILE':
+                token_parser = TokenParser(node_props)
+                
+                # Use the token parser's linked path logic to get the correct base path
+                root_token = getattr(node_props, 'root_folder_token', '')
+                new_base_path = token_parser._parse_linked_path(root_token)
+                
+                node.base_path = new_base_path
+                logger.debug(f"Updated linked node {node.name} base path: {new_base_path}")
+                
+                # For linked nodes, only update file slot filenames (not full paths)
+                # since the base path is already set correctly from the linked node
+                self._update_file_slots_filenames_only(node, node_props, token_parser, linked_version, context)
+            
+            logger.info(f"Updated linked node {node.name} to version {linked_version} (linked to {linked_node_name})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating linked node {node.name}: {e}")
+            return False
+    
+    def _update_normal_node_version(self, node, node_props, context):
+        """Update version for a normal (non-linked) node"""
+        try:
             token_parser = TokenParser(node_props)
             
             # Calculate next version (no specific version support in streamlined UX)
@@ -293,7 +543,7 @@ class OT_Update_Version(bpy.types.Operator):
             return True
             
         except Exception as e:
-            logger.error(f"Error updating node {node.name}: {e}")
+            logger.error(f"Error updating normal node {node.name}: {e}")
             return False
     
     def _calculate_next_version(self, node_props, token_parser):
@@ -352,14 +602,14 @@ class OT_Update_Version(bpy.types.Operator):
                 # EXR Multilayer: Update base_path only, slots remain as channel names
                 pass_name = node_props.pass_name if hasattr(node_props, 'pass_name') else None
                 
-                # Parse filename with new version
+                # Parse filename with new version - ALWAYS use normal path logic for filenames
                 if pass_name:
                     temp_token = file_token.replace('{passname}', pass_name)
-                    new_filename = self._reconstruct_path_with_version(temp_token, new_version, token_parser)
+                    new_filename = self._reconstruct_filename_with_version(temp_token, new_version, token_parser)
                 else:
-                    new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
+                    new_filename = self._reconstruct_filename_with_version(file_token, new_version, token_parser)
                 
-                # Parse root folder with new version
+                # Parse root folder with new version - use appropriate logic based on linking
                 root_token = node_props.root_folder_token
                 if root_token:
                     if pass_name:
@@ -412,19 +662,80 @@ class OT_Update_Version(bpy.types.Operator):
                     if i < len(node_props.stored_passes):
                         pass_name = node_props.stored_passes[i].name
                     
-                    # Parse filename with new version using reconstruction method
+                    # Parse filename with new version - ALWAYS use normal path logic for filenames
                     if pass_name:
                         # Create a temporary token string with the pass name override
                         temp_token = file_token.replace('{passname}', pass_name)
-                        new_filename = self._reconstruct_path_with_version(temp_token, new_version, token_parser)
+                        new_filename = self._reconstruct_filename_with_version(temp_token, new_version, token_parser)
                     else:
-                        new_filename = self._reconstruct_path_with_version(file_token, new_version, token_parser)
+                        new_filename = self._reconstruct_filename_with_version(file_token, new_version, token_parser)
                     
                     # Create complete path with sequence padding and extension
                     slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
                 
         except Exception as e:
             logger.error(f"Error updating file slots: {e}")
+    
+    def _update_file_slots_filenames_only(self, node, node_props, token_parser, new_version, context):
+        """Update file slot paths with just filenames (for linked nodes)"""
+        try:
+            from ..utils.defaults import get_sequence_padding
+            
+            file_token = node_props.file_name_token
+            if not file_token:
+                return
+            
+            # Get sequence padding from preferences
+            sequence_padding = get_sequence_padding()
+            
+            # Check the actual node format to determine path logic
+            node_format = node.format.file_format
+            print(f"Shotput: Updating linked node {node.name} filenames only with format {node_format}")
+            
+            if node_format == 'OPEN_EXR_MULTILAYER':
+                # EXR Multilayer: Base path should already be set correctly
+                # File slots remain as channel names, so nothing to update
+                print(f"Shotput: EXR multilayer linked node - base path already set, slots are channel names")
+                
+            else:
+                # Single file formats (PNG/JPEG/EXR single): Update individual slot filenames only
+                # Get the current UI output format for file extension
+                scene = context.scene
+                if hasattr(scene, 'shotput'):
+                    output_format = scene.shotput.output_format
+                else:
+                    output_format = 'PNG'  # Default fallback
+                
+                # Map format to file extension
+                format_extensions = {
+                    'PNG': 'png',
+                    'JPEG': 'jpg', 
+                    'OPEN_EXR': 'exr',
+                    'OPEN_EXR_MULTILAYER': 'exr'
+                }
+                file_extension = format_extensions.get(output_format, 'png')
+                
+                # Update each file slot path with just filename (no full path)
+                for i, slot in enumerate(node.file_slots):
+                    # Get the pass name from stored passes if available
+                    pass_name = None
+                    if i < len(node_props.stored_passes):
+                        pass_name = node_props.stored_passes[i].name
+                    
+                    # Parse filename with new version - ALWAYS use normal path logic for filenames
+                    if pass_name:
+                        # Create a temporary token string with the pass name override
+                        temp_token = file_token.replace('{passname}', pass_name)
+                        new_filename = self._reconstruct_filename_with_version(temp_token, new_version, token_parser)
+                    else:
+                        new_filename = self._reconstruct_filename_with_version(file_token, new_version, token_parser)
+                    
+                    # Create filename-only path with sequence padding and extension (no base path)
+                    slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
+                    print(f"Shotput: Updated linked node slot {i} to filename: {slot.path}")
+                
+        except Exception as e:
+            logger.error(f"Error updating file slot filenames: {e}")
     
     def _reconstruct_path_with_version(self, token_string, new_version, token_parser):
         """
@@ -457,6 +768,37 @@ class OT_Update_Version(bpy.types.Operator):
         
         logger.debug(f"Reconstructed path: {token_string} -> {resolved_path}")
         return resolved_path
+    
+    def _reconstruct_filename_with_version(self, token_string, new_version, token_parser):
+        """
+        Reconstruct a filename with the new version, always using filename-only logic.
+        
+        Args:
+            token_string: Original token string with {version} placeholder
+            new_version: New version string (e.g., 'v002')
+            token_parser: TokenParser instance for resolving other tokens
+            
+        Returns:
+            Fully resolved filename with the new version (filename only, no paths)
+        """
+        if '{version}' not in token_string:
+            # No version token, just parse as filename-only
+            return token_parser.parse_filename_only(token_string)
+        
+        # Split at version token to validate structure
+        version_parts = token_string.split('{version}')
+        if len(version_parts) != 2:
+            logger.warning(f"Invalid version token structure: {token_string}")
+            return token_parser.parse_filename_only(token_string)
+        
+        # Create a temporary token string with the version replaced
+        temp_token_string = token_string.replace('{version}', new_version)
+        
+        # Use filename-only parsing that won't trigger linked path resolution
+        resolved_filename = token_parser.parse_filename_only(temp_token_string, version=new_version)
+        
+        logger.debug(f"Reconstructed filename: {token_string} -> {resolved_filename}")
+        return resolved_filename
     
     def _parse_token_with_fixed_version(self, token_string, fixed_version, token_parser):
         """

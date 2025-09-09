@@ -208,6 +208,52 @@ class SHOTPUT_OT_StoredPassMoveDown(bpy.types.Operator):
             
         return {'FINISHED'}
 
+class SHOTPUT_OT_TogglePathLinking(bpy.types.Operator):
+    bl_idname = "shotput.toggle_path_linking"
+    bl_label = "Toggle Path Linking"
+    bl_description = "Toggle path linking for this File Output node"
+    
+    def execute(self, context):
+        # Get active node (can be File Output or Composite)
+        node = context.active_node
+        if not node or node.type not in ['OUTPUT_FILE', 'COMPOSITE'] or not hasattr(node, 'shotput_data'):
+            self.report({'ERROR'}, "No valid Shotput node selected")
+            return {'CANCELLED'}
+            
+        shotput_data = node.shotput_data
+        
+        # Toggle the path linking
+        new_state = not shotput_data.path_linked
+        
+        print(f"Shotput: Toggling path linking from {shotput_data.path_linked} to {new_state} for node {node.name}")
+        
+        if new_state:
+            # Enabling path linking
+            if shotput_data.root_folder_token and not shotput_data.root_folder_token_backup:
+                # Back up the current root folder token
+                shotput_data.root_folder_token_backup = shotput_data.root_folder_token
+                print(f"Shotput: Backed up root folder token: {shotput_data.root_folder_token_backup}")
+                # Set a default simple token for linked nodes
+                shotput_data.root_folder_token = "{passname}"
+                print(f"Shotput: Set simple token: {shotput_data.root_folder_token}")
+        else:
+            # Disabling path linking
+            if shotput_data.root_folder_token_backup:
+                # Restore the backed up root folder token
+                shotput_data.root_folder_token = shotput_data.root_folder_token_backup
+                print(f"Shotput: Restored root folder token: {shotput_data.root_folder_token}")
+                # Clear the backup
+                shotput_data.root_folder_token_backup = ""
+                print("Shotput: Cleared backup")
+            else:
+                print("Shotput: No backup found to restore")
+        
+        # Set the new state
+        shotput_data.path_linked = new_state
+        print(f"Shotput: Path linking is now: {shotput_data.path_linked}")
+        
+        return {'FINISHED'}
+
 class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
     bl_idname = "shotput.sync_node_passes"
     bl_label = "Sync Node Passes"
@@ -330,17 +376,40 @@ class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
             self.report({'INFO'}, f"Synced {len(desired_passes)} passes to node slots")
         else:
             self.report({'INFO'}, "Node slots already match stored passes")
+        
+        # Update node label based on current Shotput properties
+        self._update_node_label(node, shotput_data)
             
         return {'FINISHED'}
+    
+    def _update_node_label(self, node, shotput_data):
+        """Update the node label based on current Shotput properties"""
+        try:
+            # Get the current properties
+            render_layer = getattr(shotput_data, 'render_layer', 'RenderLayer')
+            pass_name = getattr(shotput_data, 'pass_name', 'Pass')
+            variant = getattr(shotput_data, 'variant', 'MAIN')
+            
+            # Generate new label in the standard format
+            new_label = f"{render_layer}.{pass_name}.{variant}"
+            
+            # Only update if the label has changed
+            if node.label != new_label:
+                old_label = node.label
+                node.label = new_label
+                print(f"Shotput: Updated node label: '{old_label}' -> '{new_label}'")
+                
+        except Exception as e:
+            print(f"Shotput: Error updating node label: {e}")
 
 # UIList for passes
 class SHOTPUT_UL_CorePasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=True, icon='RENDER_RESULT')
+        layout.prop(item, "name", text="", emboss=True, icon='STRIP_COLOR_05')
 
 class SHOTPUT_UL_AOVPasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=True, icon='IMAGE_RGB')
+        layout.prop(item, "name", text="", emboss=True, icon='STRIP_COLOR_02')
 
 # UIList for stored passes on File Output nodes
 class SHOTPUT_UL_StoredPasses(bpy.types.UIList):
@@ -370,15 +439,20 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         col.scale_y = 0.8
         col.label(text="Create and update automatic outputs for render passes")
 
-        layout.separator()
-
         # Scene Properties Box - Render Layer and Variant
         box = layout.box()
         box.label(text="Scene Properties", icon='SCENE_DATA')
         box.prop(shotput, "render_layer", text="Render Layer")
-        row = box.row()
-        row.prop(shotput, "variant", text="Variant")
-        row.operator("shotput.refresh_render_layers", text="", icon='FILE_REFRESH')
+        box.prop(shotput, "variant", text="Variant")
+
+        # Update Version - larger button
+        row = layout.row()
+        row.scale_y = 1.5
+        row.operator("shotput.update_version", icon='FILE_REFRESH', text="Update Version")
+
+        # Open Output Folder
+        row = layout.row()
+        row.operator("shotput.open_output_folder", icon='FOLDER_REDIRECT', text="Open Output Folder")
        
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
@@ -386,19 +460,12 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Composite creation option
 
         row = box.row()
-        row.operator("shotput.create_core_passes", icon='RENDERLAYERS', text="Core")
-        row.operator("shotput.create_aov_passes", icon='IMAGE_RGB', text="AOV")
-        row.operator("shotput.create_data_passes", icon='FILE_BLEND', text="Data")
+        row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Core")
+        row.operator("shotput.create_aov_passes", icon='STRIP_COLOR_02', text="AOV")
+        row.operator("shotput.create_data_passes", icon='STRIP_COLOR_01', text="Data")
         
         box.prop(shotput, "create_composite_from_core", text="Create Composite Output From Core")
         box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")        # Create Passes Box
-        
-        # Path Management Box
-        box = layout.box()
-        box.label(text="Path Management", icon='FILE_FOLDER')
-        row = box.row()
-        row.operator("shotput.update_version", icon='FILE_REFRESH', text="Update Version")
-        row.operator("shotput.open_output_folder", icon='FOLDER_REDIRECT', text="")
 
         # Path Tokens Box - Root Folder and File Name with icon operators
         box = layout.box()
@@ -429,7 +496,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row.prop(shotput, "expand_core_ui", 
                 icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
                 icon_only=True, emboss=False)
-        row.label(text="Core Passes", icon='RENDER_RESULT')
+        row.label(text="Core Passes", icon='STRIP_COLOR_05')
         
         if expand_core:
             box.prop(shotput, "core_override", text="Core Name Override")
@@ -449,7 +516,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row.prop(shotput, "expand_aov_ui", 
                 icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
                 icon_only=True, emboss=False)
-        row.label(text="AOV Passes", icon='IMAGE_RGB')
+        row.label(text="AOV Passes", icon='STRIP_COLOR_02')
         
         if expand_aov:
             box.prop(shotput, "aov_override", text="AOV Name Override")
@@ -474,32 +541,30 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row.prop(shotput, "expand_data_ui", 
                 icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
                 icon_only=True, emboss=False)
-        row.label(text="Data Passes", icon='FILE_BLEND')
+        row.label(text="Data Passes", icon='STRIP_COLOR_01')
         
         if expand_data:
-            # Basic data passes
-            col = box.column(align=True)
-            col.prop(shotput, "z", text="Depth")
-            col.prop(shotput, "normal", text="Normal")
-            col.prop(shotput, "vector", text="Motion Vector")
-            col.prop(shotput, "position", text="UV")
-            col.prop(shotput, "mist", text="Mist")
-            col.prop(shotput, "occlusion", text="Ambient Occlusion")
+            # Basic data passes in 3x2 grid with toggle buttons
+            box.label(text="Basic Passes")
+            grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+            grid.prop(shotput, "z", text="Depth", toggle=True)
+            grid.prop(shotput, "normal", text="Normal", toggle=True)
+            grid.prop(shotput, "vector", text="Vector", toggle=True)
+            grid.prop(shotput, "position", text="UV", toggle=True)
+            grid.prop(shotput, "mist", text="Mist", toggle=True)
+            grid.prop(shotput, "occlusion", text="AO", toggle=True)
             
-            # Cryptomatte passes
-            col.separator()
-            col.prop(shotput, "crypto_object", text="Cryptomatte Object")
-            col.prop(shotput, "crypto_material", text="Cryptomatte Material")
-            col.prop(shotput, "crypto_asset", text="Cryptomatte Asset")
+            # Cryptomatte passes with label and 3x1 grid
+            box.separator()
+            box.label(text="Cryptomatte")
+            crypto_grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+            crypto_grid.prop(shotput, "crypto_object", text="Object", toggle=True)
+            crypto_grid.prop(shotput, "crypto_material", text="Material", toggle=True)
+            crypto_grid.prop(shotput, "crypto_asset", text="Asset", toggle=True)
 
         # Preset Management Box
         box = layout.box()
         box.label(text="Preset Management", icon='PRESET')
-        
-        # Multi-line description with smaller text
-        col = box.column(align=True)
-        col.scale_y = 0.8
-        col.label(text="Load and save custom Shotput configurations.")
         
         # Preset buttons
         row = box.row()
@@ -538,32 +603,29 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             
             # Multi-line description with smaller text
             col.scale_y = 0.8
-            col.label(text="This Composite node controls the final")
-            col.label(text="scene render output path. When connected")
-            col.label(text="to the Composite output, 'Update Version'")
-            col.label(text="will sync the scene's render filepath.")
+            col.label(text="This Composite node will sync the scene's render filepath when 'Update Version' is called")
         else:
             col.label(text="Shotput File Output Node", icon='INFO')
-            col.separator(factor=0.5)
+            col.separator(factor=0.)
             
             # Multi-line description with smaller text
             col.scale_y = 0.8
-            col.label(text="This File Output node is configured for")
-            col.label(text="organized render pass management.")
-            col.label(text="Paths use token-based naming for")
-            col.label(text="consistent project organization.")
-        
-        layout.separator()
-        
+            col.label(text="This File Output node is configured for token-based render pathing.")
+  
         # Node Properties Box
         box = layout.box()
-        box.label(text="Shotput Properties", icon='SETTINGS')
         
-        # Show Shotput version (read-only)
+        # Header row with title and version
         if shotput_data.shotput_version:
-            row = box.row()
-            row.label(text=f"Shotput Version: {shotput_data.shotput_version}", icon='INFO')
-            row.enabled = False  # Make it read-only
+            header_row = box.row()
+            header_row.label(text="Shotput Properties", icon='SETTINGS')
+            # Add some spacing to push version to the right
+            header_row.separator()
+            version_label = header_row.row()
+            version_label.enabled = False  # Make only the version read-only (greyed out)
+            version_label.label(text=f"Version: {shotput_data.shotput_version}")
+        else:
+            box.label(text="Shotput Properties", icon='SETTINGS')
         
         box.prop(shotput_data, "render_layer", text="Render Layer")
         box.prop(shotput_data, "pass_name", text="Pass Name")
@@ -571,36 +633,83 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         
         # Path Tokens Box
         box = layout.box()
-        box.label(text="Path Configuration", icon='FILE_FOLDER')
-        box.prop(shotput_data, "root_folder_token", text="Root Folder")
+        if shotput_data.path_linked:
+            box.label(text="Path Configuration (Path-Linked)", icon='LINKED')
+        else:
+            box.label(text="Path Configuration", icon='FILE_FOLDER')
+        
+        # Path linking controls
+        row = box.row()
+        if shotput_data.path_linked:
+            row.operator("shotput.toggle_path_linking", 
+                        text="Path Linked", 
+                        icon='LINKED',
+                        depress=True)
+        else:
+            row.operator("shotput.toggle_path_linking", 
+                        text="Enable Path Linking", 
+                        icon='UNLINKED',
+                        depress=False)
+        
+        if shotput_data.path_linked:
+            # Show path linking UI
+            box.prop(shotput_data, "linked_node", text="Linked Node")
+            
+            # Show the linked node's path if available
+            linked_node = shotput_data.node
+            if linked_node:
+                row = box.row()
+                row.label(text=f"Linked Path: {linked_node.base_path}", icon='FILE_FOLDER')
+                row.enabled = False  # Make it read-only/grayed out
+            else:
+                row = box.row()
+                row.label(text="No valid linked node selected", icon='ERROR')
+                row.enabled = False
+            
+            # Append path field with consistent layout
+            box.prop(shotput_data, "root_folder_token", text="Append Path (optional)")
+            
+            # Show backup info if available
+            if shotput_data.root_folder_token_backup:
+                row = box.row()
+                row.label(text="Original path backed up", icon='INFO')
+                row.enabled = False
+        else:
+            # Normal path configuration
+            box.prop(shotput_data, "root_folder_token", text="Root Folder")
+        
+        # File name token is always shown
         box.prop(shotput_data, "file_name_token", text="File Name")
         
-        # Output Folder Actions
+        # Output Folder Actions and Lazy Hook-up in a single row
         row = box.row()
         row.operator("shotput.open_output_folder", text="Open Output Folder", icon='FOLDER_REDIRECT')
-        
-        # Lazy Hook-up Button
-        row = box.row()
         row.operator("shotput.lazy_hookup", text="Connect to Render Layer", icon='LINKED')
         
-        # Stored Passes UIList - only show for non-composite nodes
-        if shotput_data.pass_name != "composite":
+        # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
+        if node.type == 'OUTPUT_FILE':
             box = layout.box()
-            box.label(text="Output Passes", icon='RENDERLAYERS')
-            
-            # Sync button (one-way: stored passes -> node slots)
             row = box.row()
-            row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
+            expand_stored = shotput_data.expand_stored_ui if hasattr(shotput_data, 'expand_stored_ui') else False
+            row.prop(shotput_data, "expand_stored_ui", 
+                    icon="TRIA_DOWN" if expand_stored else "TRIA_RIGHT", 
+                    icon_only=True, emboss=False)
+            row.label(text="Output Passes (Advanced)", icon='RENDERLAYERS')
             
-            # UIList with controls
-            row = box.row()
-            row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
-            col = row.column(align=True)
-            col.operator("shotput.stored_pass_add", icon='ADD', text="")
-            col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
-            col.separator()
-            col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
-            col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
+            if expand_stored:
+                # Sync button (one-way: stored passes -> node slots)
+                row = box.row()
+                row.operator("shotput.sync_node_passes", text="Sync to Node Slots", icon='FILE_REFRESH')
+                
+                # UIList with controls
+                row = box.row()
+                row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
+                col = row.column(align=True)
+                col.operator("shotput.stored_pass_add", icon='ADD', text="")
+                col.operator("shotput.stored_pass_remove", icon='REMOVE', text="")
+                col.separator()
+                col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
+                col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
 
 classes = (
     SHOTPUT_UL_CorePasses,
@@ -620,6 +729,7 @@ classes = (
     SHOTPUT_OT_StoredPassRemove,
     SHOTPUT_OT_StoredPassMoveUp,
     SHOTPUT_OT_StoredPassMoveDown,
+    SHOTPUT_OT_TogglePathLinking,
     SHOTPUT_OT_SyncNodePasses,
 )
 

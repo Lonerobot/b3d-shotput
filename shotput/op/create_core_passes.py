@@ -215,7 +215,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Create composite node if requested
         composite_node = None
         if shotput_props.create_composite_from_core:
-            composite_node = self._create_composite_node(context, tree, shotput_props, token_parser)
+            composite_node = self._create_composite_node(context, tree, shotput_props, token_parser, file_output)
         
         # Auto-connect nodes if lazy hook-up is enabled
         core_pass_names = [core_pass.name for core_pass in shotput_props.core_passes]
@@ -233,7 +233,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         
         return {'FINISHED'}
     
-    def _create_composite_node(self, context, tree, shotput_props, token_parser):
+    def _create_composite_node(self, context, tree, shotput_props, token_parser, core_node):
         """Create a Shotput Composite node (actual Blender Composite node for main output)"""
         
         # Create node label: render_layer.composite.variant
@@ -262,9 +262,18 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Copy scene properties to composite node
         comp_props.render_layer = shotput_props.render_layer
         comp_props.variant = shotput_props.variant
-        comp_props.root_folder_token = shotput_props.root_folder_token
         comp_props.file_name_token = shotput_props.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
+        
+        # Set up path linking to the core node (but make it toggleable)
+        # First set the full root folder token as if it were created normally
+        comp_props.root_folder_token = shotput_props.root_folder_token
+        
+        # Then enable path linking, which will trigger the backup system
+        comp_props.path_linked = True  # Enable path linking by default
+        comp_props.root_folder_token_backup = shotput_props.root_folder_token  # Back up the original
+        comp_props.linked_node = core_node.name  # Link to the core node
+        comp_props.root_folder_token = "{passname}"  # Use dynamic token that resolves to pass_name
         
         # Add single stored pass for composite (for UI consistency)
         comp_props.stored_passes.clear()
@@ -272,7 +281,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         stored_pass.name = "Composite"
         
         print(f"Shotput: Created composite node '{node_label}' (routes to main render output)")
-        print(f"Shotput: Composite node will use scene render settings for format/path")
-        logger.info(f"Created composite node '{node_label}' for main output routing")
+        print(f"Shotput: Composite node path-linked to '{core_node.name}' with 'composite' subfolder")
+        logger.info(f"Created composite node '{node_label}' for main output routing, path-linked to {core_node.name}")
         
         return composite_node

@@ -72,6 +72,7 @@ class TokenParser:
     def parse_token(self, token_string: str, **kwargs) -> str:
         """
         Parse a token string and return the resolved path.
+        Handles path linking - if node is path-linked, uses linked node's path as base.
         
         Args:
             token_string: String containing tokens like "{workdir}/{renderlayer}"
@@ -85,6 +86,117 @@ class TokenParser:
             
         logger.debug(f"Parsing token string: {token_string}")
         
+        # Check if this node is path-linked and handle accordingly
+        if self._is_path_linked():
+            return self._parse_linked_path(token_string, **kwargs)
+        else:
+            return self._parse_normal_path(token_string, **kwargs)
+    
+    def parse_filename_only(self, token_string: str, **kwargs) -> str:
+        """
+        Parse a token string as filename-only (never uses linked path logic).
+        
+        This method always resolves tokens without path components,
+        regardless of whether the node is linked or not. Use this for
+        file slot patterns that should only contain filenames.
+        
+        Args:
+            token_string: String containing filename tokens like "{renderlayer}_{passname}_{variant}"
+            **kwargs: Additional token values to override defaults
+            
+        Returns:
+            Resolved filename string (no path separators)
+        """
+        if not token_string:
+            return ""
+            
+        logger.debug(f"Parsing filename-only token string: {token_string}")
+        return self._parse_normal_path(token_string, **kwargs)
+    
+    def _is_path_linked(self) -> bool:
+        """Check if the current node is path-linked to another node"""
+        if not self.node_properties:
+            return False
+        return (hasattr(self.node_properties, 'path_linked') and 
+                getattr(self.node_properties, 'path_linked', False) and
+                hasattr(self.node_properties, 'linked_node') and
+                getattr(self.node_properties, 'linked_node', '') not in ['', 'NONE'])
+    
+    def _parse_linked_path(self, token_string: str, **kwargs) -> str:
+        """
+        Parse path for a linked node - uses linked node's base path + optional append path.
+        
+        Args:
+            token_string: String to append to linked path (may contain tokens)
+            **kwargs: Additional token values to override defaults
+            
+        Returns:
+            Resolved path string combining linked base + appended path
+        """
+        # Clear cache to ensure fresh token resolution
+        self.clear_cache()
+        
+        # Get the linked node's base path
+        linked_base_path = self._get_linked_node_base_path()
+        
+        # If token_string is empty, just return the linked path
+        if not token_string.strip():
+            logger.debug(f"Using linked base path only: {linked_base_path}")
+            return linked_base_path
+        
+        # Parse the token_string normally (it may contain tokens to resolve)
+        appended_path = self._parse_normal_path(token_string, **kwargs)
+        
+        # Combine linked base path with appended path
+        if appended_path:
+            # Use Path to properly join paths
+            combined_path = str(Path(linked_base_path) / appended_path)
+            logger.debug(f"Combined linked path '{linked_base_path}' + '{appended_path}' = '{combined_path}'")
+            return combined_path
+        else:
+            logger.debug(f"Using linked base path only: {linked_base_path}")
+            return linked_base_path
+    
+    def _get_linked_node_base_path(self) -> str:
+        """Get the base path from the linked File Output node"""
+        if not self.node_properties:
+            return ""
+        
+        linked_node_name = getattr(self.node_properties, 'linked_node', '')
+        if not linked_node_name or linked_node_name == 'NONE':
+            return ""
+        
+        # Get the linked node from the scene
+        scene = bpy.context.scene
+        if not scene or not scene.node_tree:
+            logger.error("No scene or node tree available for linked path resolution")
+            return ""
+        
+        linked_node = scene.node_tree.nodes.get(linked_node_name)
+        if not linked_node or linked_node.type != 'OUTPUT_FILE':
+            logger.error(f"Linked node '{linked_node_name}' not found or not a File Output node")
+            return ""
+        
+        # Return the linked node's base_path
+        base_path = getattr(linked_node, 'base_path', '')
+        logger.debug(f"Retrieved linked node base path: {base_path}")
+        return base_path
+    
+    def _parse_normal_path(self, token_string: str, **kwargs) -> str:
+        """
+        Parse a token string normally (non-linked mode).
+        
+        Args:
+            token_string: String containing tokens like "{workdir}/{renderlayer}"
+            **kwargs: Additional token values to override defaults
+            
+        Returns:
+            Resolved path string
+        """
+        # Clear cache if overrides are provided to ensure fresh resolution
+        if kwargs:
+            self.clear_cache()
+            
         # Find all tokens in the string
         tokens = re.findall(r'\{([^}]+)\}', token_string)
         resolved_string = token_string
@@ -104,7 +216,7 @@ class TokenParser:
                 
             except Exception as e:
                 logger.error(f"Failed to resolve token '{token}': {e}")
-                # Keep the token unresolve if it fails
+                # Keep the token unresolved if it fails
                 continue
         
         # Clean up the path and ensure it's valid
@@ -286,12 +398,18 @@ class TokenParser:
         elif pass_type == "data":
             overrides['passname'] = "Data"
             
-        # Parse tokens
+        # Parse tokens - handle linked vs normal nodes differently
         root_token = getattr(self.node_properties, 'root_folder_token', '') if self.node_properties else ''
         file_token = getattr(self.node_properties, 'file_name_token', '') if self.node_properties else ''
         
-        base_path = self.parse_token(root_token, **overrides) if root_token else ""
-        filename = self.parse_token(file_token, **overrides) if file_token else ""
+        # For base path: use linked logic if path-linked, otherwise normal
+        if self._is_path_linked():
+            base_path = self._parse_linked_path(root_token, **overrides)
+        else:
+            base_path = self._parse_normal_path(root_token, **overrides) if root_token else ""
+        
+        # For filename: ALWAYS use normal logic (never use linked path for filenames)
+        filename = self._parse_normal_path(file_token, **overrides) if file_token else ""
         
         return base_path, filename
     

@@ -2,6 +2,42 @@
 import bpy
 from .utils.defaults import initialize_default_passes
 
+def get_file_output_nodes(self, context):
+    """Generate enum items for File Output nodes only, excluding the current node"""
+    items = []
+    scene = context.scene
+    
+    # Try to determine the current node to exclude it
+    current_node_name = None
+    if hasattr(context, 'active_node') and context.active_node:
+        current_node_name = context.active_node.name
+    
+    if scene and scene.node_tree:
+        for node in scene.node_tree.nodes:
+            if node.type == 'OUTPUT_FILE':
+                # Skip the current node to prevent self-linking
+                if current_node_name and node.name == current_node_name:
+                    continue
+                    
+                items.append((
+                    node.name, 
+                    node.name, 
+                    f"File Output Node: {node.name}",
+                    'NODE',  # Node icon
+                    len(items)  # Unique number for each item
+                ))
+    
+    if not items:
+        items.append((
+            "NONE", 
+            "No Other File Output Nodes", 
+            "No other File Output nodes available for linking",
+            'ERROR',  # Error icon when no nodes
+            0
+        ))
+    
+    return items
+
 # List item for passes
 class ShotputPassItem(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
@@ -41,6 +77,42 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
         name="Stored Passes Index", 
         default=0
     )
+    
+    # UI expansion state for stored passes section
+    expand_stored_ui: bpy.props.BoolProperty(
+        name="Stored Passes UI",
+        description="Show/hide stored passes section in node UI",
+        default=False
+    )
+    
+    # Path linking properties
+    path_linked: bpy.props.BoolProperty(
+        name="Path Linked",
+        description="Link this node's path to another File Output node",
+        default=False
+    )
+    root_folder_token_backup: bpy.props.StringProperty(
+        name="Root Folder Token Backup",
+        description="Backup of the original root folder token before path linking",
+        default=""
+    )
+    linked_node: bpy.props.EnumProperty(
+        name="Linked Node",
+        description="Select a File Output node to link paths with",
+        items=get_file_output_nodes
+    )
+    
+    @property
+    def node(self):
+        """Get the actual linked file output node from the scene's node tree"""
+        scene = bpy.context.scene
+        if scene.node_tree:
+            node_name = str(self.linked_node) if self.linked_node else ""
+            if node_name and node_name != "NONE":
+                node = scene.node_tree.nodes.get(node_name)
+                if node and node.type == 'OUTPUT_FILE':
+                    return node
+        return None
 
 
 # Scene-level property group for Shotput settings

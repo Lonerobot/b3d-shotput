@@ -83,21 +83,8 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-class OT_Refresh_Render_Layers(bpy.types.Operator):
-    bl_idname = "shotput.refresh_render_layers"  
-    bl_label = "Refresh Render Layers"
-    bl_description = "Refresh the list of available render layers"
-    bl_options = {'REGISTER'}
-    
-    def execute(self, context):
-        render_layers = get_render_layers(context)
-        self.report({'INFO'}, f"Found {len(render_layers)} render layer(s): {', '.join(render_layers)}")
-        return {'FINISHED'}
-
-
 classes = (
     OT_Lazy_Hookup,
-    OT_Refresh_Render_Layers,
 )
 
 
