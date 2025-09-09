@@ -457,15 +457,16 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
         
-        # Composite creation option
-
-        row = box.row()
+        # 4x1 horizontal layout for operators with increased height
+        row = box.row(align=True)
+        row.scale_y = 1.5
         row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Core")
+        row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Composite")
         row.operator("shotput.create_aov_passes", icon='STRIP_COLOR_02', text="AOV")
         row.operator("shotput.create_data_passes", icon='STRIP_COLOR_01', text="Data")
         
-        box.prop(shotput, "create_composite_from_core", text="Create Composite Output From Core")
-        box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")        # Create Passes Box
+        box.prop(shotput, "create_composite_from_core", text="Create Linked Composite Node from Core")
+        box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")
 
         # Path Tokens Box - Root Folder and File Name with icon operators
         box = layout.box()
@@ -631,12 +632,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         box.prop(shotput_data, "pass_name", text="Pass Name")
         box.prop(shotput_data, "variant", text="Variant")
         
-        # Path Tokens Box
-        box = layout.box()
-        if shotput_data.path_linked:
-            box.label(text="Path Configuration (Path-Linked)", icon='LINKED')
-        else:
-            box.label(text="Path Configuration", icon='FILE_FOLDER')
+        box.label(text="Path Configuration", icon='FILE_FOLDER')
         
         # Path linking controls
         row = box.row()
@@ -667,13 +663,13 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                 row.enabled = False
             
             # Append path field with consistent layout
-            box.prop(shotput_data, "root_folder_token", text="Append Path (optional)")
+            box.prop(shotput_data, "root_folder_token", text="Append Path")
             
             # Show backup info if available
-            if shotput_data.root_folder_token_backup:
-                row = box.row()
-                row.label(text="Original path backed up", icon='INFO')
-                row.enabled = False
+            # if shotput_data.root_folder_token_backup:
+            #     row = box.row()
+            #     row.label(text="Original path backed up", icon='INFO')
+            #     row.enabled = False
         else:
             # Normal path configuration
             box.prop(shotput_data, "root_folder_token", text="Root Folder")
@@ -685,6 +681,11 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         row = box.row()
         row.operator("shotput.open_output_folder", text="Open Output Folder", icon='FOLDER_REDIRECT')
         row.operator("shotput.lazy_hookup", text="Connect to Render Layer", icon='LINKED')
+        
+        # Create Linked Composite button - only show for File Output nodes
+        if node.type == 'OUTPUT_FILE':
+            row = box.row()
+            row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Create Linked Composite Node from Core")
         
         # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
         if node.type == 'OUTPUT_FILE':

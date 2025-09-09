@@ -1,7 +1,7 @@
 
 
 from .open_output_folder import OT_Open_Output_Folder
-from .create_core_passes import OT_Create_Core_Passes
+from .create_core_passes import OT_Create_Core_Passes, OT_Create_Linked_Composite
 from .create_aov_passes import OT_Create_AOV_Passes
 from .create_data_passes import OT_Create_Data_Passes
 from .scan_shader_aovs import OT_Scan_Shader_AOVs
@@ -14,6 +14,7 @@ import bpy
 classes = (
         OT_Open_Output_Folder,
         OT_Create_Core_Passes,
+        OT_Create_Linked_Composite,
         OT_Create_AOV_Passes,
         OT_Create_Data_Passes,
         OT_Scan_Shader_AOVs,

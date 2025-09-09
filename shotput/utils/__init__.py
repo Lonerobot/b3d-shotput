@@ -23,6 +23,11 @@ from .defaults import (
     initialize_default_passes
 )
 from .lazy_hookup import auto_connect_node
+from .color_utils import (
+    store_original_node_color,
+    restore_original_node_color,
+    apply_path_linked_visual_feedback
+)
 
 __all__ = [
     'TokenParser',
@@ -36,5 +41,8 @@ __all__ = [
     'get_sequence_padding',
     'get_subpath_token_value',
     'initialize_default_passes',
-    'auto_connect_node'
+    'auto_connect_node',
+    'store_original_node_color',
+    'restore_original_node_color',
+    'apply_path_linked_visual_feedback'
 ]

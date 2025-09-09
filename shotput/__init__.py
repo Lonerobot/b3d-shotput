@@ -12,15 +12,13 @@ r"""
 # Shotput - A Blender addon for managing file output nodes
 
 """
-
-# Addon metadata - required by Blender
 bl_info = {
     "name": "Shotput",
     "description": "Build and repath file output nodes automatically",
     "blender": (4, 4, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
-    "version": (0, 0, 3),
+    "version": (1, 0, 2),
     "location": "Compositor Tab > Sidebar",
     "doc_url": "https://www.thelineanimation.com/",
     "wiki_url": "https://www.thelineanimation.com",

@@ -2,6 +2,53 @@
 import bpy
 from .utils.defaults import initialize_default_passes
 
+def update_path_linked(self, context):
+    """Apply or remove visual feedback when path linking is toggled"""
+    # Find the node that owns this property group
+    node = None
+    scene = context.scene
+    if scene and scene.node_tree:
+        for scene_node in scene.node_tree.nodes:
+            if hasattr(scene_node, 'shotput_data') and scene_node.shotput_data == self:
+                node = scene_node
+                break
+    
+    if node:
+        from .utils.color_utils import apply_path_linked_visual_feedback
+        
+        if self.path_linked and self.linked_node and self.linked_node != 'NONE':
+            # Apply visual feedback
+            linked_node = scene.node_tree.nodes.get(self.linked_node)
+            if linked_node:
+                apply_path_linked_visual_feedback(node, linked_node)
+        else:
+            # Remove visual feedback
+            apply_path_linked_visual_feedback(node, None)
+
+
+def update_linked_node(self, context):
+    """Store linked node name as backup whenever it's set and apply visual feedback"""
+    # Find the node that owns this property group
+    node = None
+    scene = context.scene
+    if scene and scene.node_tree:
+        for scene_node in scene.node_tree.nodes:
+            if hasattr(scene_node, 'shotput_data') and scene_node.shotput_data == self:
+                node = scene_node
+                break
+    
+    if node:
+        # Store the linked node name as a backup custom property
+        if self.linked_node and self.linked_node != 'NONE':
+            node["shotput_linked_node_backup"] = self.linked_node
+            
+            # Apply visual feedback if node is path-linked
+            if hasattr(self, 'path_linked') and self.path_linked:
+                from .utils.color_utils import apply_path_linked_visual_feedback
+                linked_node = scene.node_tree.nodes.get(self.linked_node)
+                if linked_node:
+                    apply_path_linked_visual_feedback(node, linked_node)
+
 def get_file_output_nodes(self, context):
     """Generate enum items for File Output nodes only, excluding the current node"""
     items = []
@@ -89,7 +136,8 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     path_linked: bpy.props.BoolProperty(
         name="Path Linked",
         description="Link this node's path to another File Output node",
-        default=False
+        default=False,
+        update=update_path_linked
     )
     root_folder_token_backup: bpy.props.StringProperty(
         name="Root Folder Token Backup",
@@ -99,19 +147,31 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     linked_node: bpy.props.EnumProperty(
         name="Linked Node",
         description="Select a File Output node to link paths with",
-        items=get_file_output_nodes
+        items=get_file_output_nodes,
+        update=update_linked_node
     )
     
     @property
     def node(self):
         """Get the actual linked file output node from the scene's node tree"""
         scene = bpy.context.scene
-        if scene.node_tree:
+        if scene and scene.node_tree:
+            # First try the enum property
             node_name = str(self.linked_node) if self.linked_node else ""
             if node_name and node_name != "NONE":
                 node = scene.node_tree.nodes.get(node_name)
                 if node and node.type == 'OUTPUT_FILE':
                     return node
+            
+            # If enum failed, try backup custom property
+            # Find the node that has this property (likely a composite node)
+            for node in scene.node_tree.nodes:
+                if (hasattr(node, 'shotput_data') and node.shotput_data == self and
+                    "shotput_linked_node_backup" in node):
+                    backup_name = node["shotput_linked_node_backup"]
+                    backup_node = scene.node_tree.nodes.get(backup_name)
+                    if backup_node and backup_node.type == 'OUTPUT_FILE':
+                        return backup_node
         return None
 
 

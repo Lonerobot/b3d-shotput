@@ -104,9 +104,6 @@ class OT_Update_Version(bpy.types.Operator):
                 self.report({'INFO'}, success_msg)
             
             logger.info(f"Successfully updated {updated_count} Shotput nodes ({len(non_linked_nodes)} non-linked, {len(linked_nodes)} linked)")
-            
-            # Handle composite node and scene render path update
-            self._handle_composite_render_path(context, tree)
         else:
             # Combine no updates message with composite warning if present
             if composite_warning:
@@ -114,6 +111,10 @@ class OT_Update_Version(bpy.types.Operator):
                 self.report({'WARNING'}, combined_msg)
             else:
                 self.report({'WARNING'}, "No nodes were updated")
+        
+        # Always try to handle composite node and scene render path update after updating nodes
+        # This ensures scene render path gets updated even if composite node wasn't selected
+        self._handle_composite_render_path(context, tree)
             
         return {'FINISHED'}
     
@@ -347,16 +348,24 @@ class OT_Update_Version(bpy.types.Operator):
     def _handle_composite_render_path(self, context, tree):
         """Handle composite node validation and scene render path update"""
         try:
+            print(f"Shotput: _handle_composite_render_path called")
+            
             # Find all Shotput composite nodes
             composite_nodes = []
             for node in tree.nodes:
                 if self._is_shotput_composite_node(node):
                     composite_nodes.append(node)
             
+            print(f"Shotput: Found {len(composite_nodes)} composite nodes")
+            
             if not composite_nodes:
                 # No composite nodes found, nothing to do
                 logger.debug("No Shotput composite nodes found")
+                print(f"Shotput: No composite nodes found, returning")
                 return
+            
+            # Find the composite node to use for scene render path
+            composite_node = None
             
             if len(composite_nodes) > 1:
                 # Multiple composite nodes - check for connections
@@ -381,18 +390,132 @@ class OT_Update_Version(bpy.types.Operator):
                     return
             else:
                 # Single composite node
-                composite_node = composite_nodes[0]
-                if not self._has_incoming_connections(composite_node):
+                candidate_node = composite_nodes[0]
+                if self._has_incoming_connections(candidate_node):
+                    composite_node = candidate_node
+                else:
                     # Not connected - nothing to do
                     logger.debug("Single Shotput composite node found but not connected")
                     return
             
-            # Update scene render path using composite node properties
-            self._update_scene_render_path(context, composite_node)
+            # Validate that the composite node has proper configuration before updating scene render path
+            if composite_node and self._is_composite_node_valid_for_scene_render(composite_node):
+                print(f"Shotput: Composite node {composite_node.name} is valid for scene render")
+                # Update scene render path using composite node properties
+                self._update_scene_render_path(context, composite_node)
+            else:
+                print(f"Shotput: Composite node {composite_node.name if composite_node else 'None'} not valid for scene render path update")
+                logger.debug("Composite node found but not valid for scene render path update")
             
         except Exception as e:
             logger.error(f"Error handling composite render path: {e}")
             self.report({'WARNING'}, f"Failed to update scene render path: {e}")
+    
+    def _is_composite_node_valid_for_scene_render(self, composite_node):
+        """Check if a composite node has valid configuration for scene render path"""
+        print(f"Shotput: Validating composite node {composite_node.name}")
+        
+        if not hasattr(composite_node, 'shotput_data'):
+            print(f"Shotput: Node {composite_node.name} has no shotput_data")
+            return False
+        
+        node_props = composite_node.shotput_data
+        
+        # Check if it has a valid file name token
+        filename_token = getattr(node_props, 'file_name_token', '')
+        if not filename_token or not filename_token.strip():
+            print(f"Shotput: Node {composite_node.name} has no filename token: '{filename_token}'")
+            logger.debug(f"Composite node {composite_node.name} has no filename token")
+            return False
+        
+        print(f"Shotput: Node {composite_node.name} has filename token: '{filename_token}'")
+        
+        # If path-linked, validate the linked node exists (but don't require base_path since it gets set during update)
+        if hasattr(node_props, 'path_linked') and node_props.path_linked:
+            linked_node_name = getattr(node_props, 'linked_node', '')
+            
+            # If linked_node is NONE, try to get it from backup custom property
+            if not linked_node_name or linked_node_name == 'NONE':
+                if "shotput_linked_node_backup" in composite_node:
+                    backup_name = composite_node["shotput_linked_node_backup"]
+                    linked_node_name = backup_name
+                else:
+                    # Last resort: find any Shotput File Output node, but prioritize by context
+                    scene = bpy.context.scene
+                    if scene and scene.node_tree:
+                        candidate_nodes = []
+                        for node in scene.node_tree.nodes:
+                            if (node.type == 'OUTPUT_FILE' and 
+                                hasattr(node, 'shotput_data') and
+                                node.name.startswith('Shotput_')):
+                                candidate_nodes.append(node)
+                        
+                        # If we have candidates, prefer them in this order:
+                        # 1. Core nodes (most common link target)
+                        # 2. Any other Shotput nodes
+                        if candidate_nodes:
+                            # Try to find a Core node first
+                            for node in candidate_nodes:
+                                if 'Core' in node.name:
+                                    linked_node_name = node.name
+                                    break
+                            else:
+                                # If no Core node, use the first available
+                                linked_node_name = candidate_nodes[0].name
+            
+            if not linked_node_name or linked_node_name == 'NONE':
+                logger.debug(f"Composite node {composite_node.name} is path-linked but has no valid linked node")
+                # Show user-friendly warning
+                self.report({'WARNING'}, f"Composite node '{composite_node.name}' is set to path-linked but no linked node is selected. Please select a linked File Output node or disable path linking.")
+                return False
+            
+            # Check if linked node exists and is valid
+            scene = bpy.context.scene
+            if scene and scene.node_tree:
+                linked_node = scene.node_tree.nodes.get(linked_node_name)
+                if not linked_node or linked_node.type != 'OUTPUT_FILE':
+                    # Check if this is because there are no other File Output nodes available
+                    file_output_count = 0
+                    for node in scene.node_tree.nodes:
+                        if node.type == 'OUTPUT_FILE':
+                            file_output_count += 1
+                    
+                    if file_output_count <= 1:
+                        # Only the composite node itself exists, no other File Output nodes
+                        self.report({'WARNING'}, f"Composite node '{composite_node.name}' is set to path-linked but there are no other File Output nodes available. Please disable path linking as you only have one File Output node.")
+                    else:
+                        # The linked node was deleted or renamed
+                        self.report({'WARNING'}, f"Composite node '{composite_node.name}' is linked to '{linked_node_name}' but this node was not found or is not a File Output node. The linked node may have been deleted or renamed. Please update the linked node selection.")
+                    
+                    logger.debug(f"Composite node {composite_node.name} linked node {linked_node_name} not found or not File Output")
+                    return False
+                
+                # Check for circular dependency - if the linked node is also path-linked but has no base path
+                if hasattr(linked_node, 'base_path'):
+                    linked_base_path = linked_node.base_path
+                    if not linked_base_path or linked_base_path.strip() == "":
+                        # Check if the linked node is also path-linked (which would be a circular dependency)
+                        linked_props = getattr(linked_node, 'shotput_data', None)
+                        if (linked_props and 
+                            hasattr(linked_props, 'path_linked') and 
+                            linked_props.path_linked):
+                            logger.debug(f"Composite node {composite_node.name} linked to {linked_node_name} which is path-linked but has no base path (circular dependency)")
+                            # Show user-friendly warning
+                            self.report({'WARNING'}, f"Composite node '{composite_node.name}' is linked to '{linked_node_name}' which is also path-linked but has no base path. This creates a circular dependency. Please set a base path for '{linked_node_name}' or disable its path linking.")
+                            return False
+            else:
+                return False
+        else:
+            print(f"Shotput: Node {composite_node.name} is not path-linked")
+            # Not path-linked, check if it has a valid root folder token
+            root_token = getattr(node_props, 'root_folder_token', '')
+            if not root_token or not root_token.strip():
+                print(f"Shotput: Node {composite_node.name} has no root folder token and is not path-linked: '{root_token}'")
+                logger.debug(f"Composite node {composite_node.name} has no root folder token and is not path-linked")
+                return False
+        
+        print(f"Shotput: Node {composite_node.name} passed all validation checks")
+        return True
     
     def _has_incoming_connections(self, node):
         """Check if a node has any incoming connections"""
@@ -412,8 +535,98 @@ class OT_Update_Version(bpy.types.Operator):
             # Get the actual pass name from the node properties
             pass_name = getattr(node_props, 'pass_name', 'composite')
             
-            # Parse the root folder token to get base path
-            base_path = token_parser.parse_token(node_props.root_folder_token, passname=pass_name)
+            # For composite nodes, we need to handle path linking specially
+            base_path = ""
+            
+            print(f"Shotput: Updating scene render path for composite node {composite_node.name}")
+            
+            # Check if this composite node is path-linked
+            if hasattr(node_props, 'path_linked') and node_props.path_linked:
+                # Get the linked node's base path
+                linked_node_name = getattr(node_props, 'linked_node', '')
+                
+                # If linked_node is NONE, try to get it from backup custom property
+                if not linked_node_name or linked_node_name == 'NONE':
+                    if "shotput_linked_node_backup" in composite_node:
+                        backup_name = composite_node["shotput_linked_node_backup"]
+                        linked_node_name = backup_name
+                    else:
+                        # Last resort: find any Shotput File Output node, but prioritize by context
+                        scene = context.scene
+                        if scene and scene.node_tree:
+                            candidate_nodes = []
+                            for node in scene.node_tree.nodes:
+                                if (node.type == 'OUTPUT_FILE' and 
+                                    hasattr(node, 'shotput_data') and
+                                    node.name.startswith('Shotput_')):
+                                    candidate_nodes.append(node)
+                            
+                            # If we have candidates, prefer them in this order:
+                            # 1. Core nodes (most common link target)
+                            # 2. Any other Shotput nodes
+                            if candidate_nodes:
+                                # Try to find a Core node first
+                                for node in candidate_nodes:
+                                    if 'Core' in node.name:
+                                        linked_node_name = node.name
+                                        break
+                                else:
+                                    # If no Core node, use the first available
+                                    linked_node_name = candidate_nodes[0].name
+                
+                if linked_node_name and linked_node_name != 'NONE':
+                    scene = context.scene
+                    if scene and scene.node_tree:
+                        linked_node = scene.node_tree.nodes.get(linked_node_name)
+                        if linked_node and hasattr(linked_node, 'base_path'):
+                            # Check if the linked node has a valid base path
+                            linked_base_path = linked_node.base_path
+                            
+                            # Validate that the linked node isn't also broken (path-linked with no base_path)
+                            if not linked_base_path or linked_base_path.strip() == "":
+                                # The linked node has no base path - check if it's also path-linked
+                                linked_props = getattr(linked_node, 'shotput_data', None)
+                                if (linked_props and 
+                                    hasattr(linked_props, 'path_linked') and 
+                                    linked_props.path_linked):
+                                    # This is a circular dependency - the linked node is also path-linked but has no base
+                                    logger.warning(f"Linked node {linked_node_name} is path-linked but has no base path - cannot use for composite render path")
+                                    self.report({'WARNING'}, f"Cannot update scene render path: Linked node '{linked_node_name}' is path-linked but has no base path (circular dependency). Please set a base path for '{linked_node_name}' or disable its path linking.")
+                                    return
+                                else:
+                                    # The linked node is not path-linked but has no base path - this shouldn't happen
+                                    logger.warning(f"Linked node {linked_node_name} has no base path - cannot use for composite render path")
+                                    self.report({'WARNING'}, f"Cannot update scene render path: Linked node '{linked_node_name}' has no base path set. Please set a base path for this node.")
+                                    return
+                            
+                            # Start with the linked node's base path
+                            base_path = linked_base_path
+                            
+                            # If there's an append path in root_folder_token, add it
+                            append_path = getattr(node_props, 'root_folder_token', '')
+                            if append_path and append_path.strip():
+                                # Parse the append path with tokens
+                                parsed_append = token_parser.parse_filename_only(append_path, passname=pass_name)
+                                if parsed_append:
+                                    # Use Path to properly combine paths
+                                    from pathlib import Path
+                                    base_path = str(Path(base_path) / parsed_append)
+                            
+                            logger.info(f"Using linked base path: {base_path}")
+                        else:
+                            logger.warning(f"Linked node {linked_node_name} found but has no base_path")
+                    else:
+                        print(f"Shotput: Warning - no scene or node tree available")
+                else:
+                    print(f"Shotput: Warning - no valid linked node name after checking backup")
+            else:
+                print(f"Shotput: Composite node is not path-linked")
+            
+            # If not path-linked or linking failed, parse normally
+            if not base_path:
+                print(f"Shotput: Falling back to normal token parsing")
+                base_path = token_parser.parse_token(node_props.root_folder_token, passname=pass_name)
+                print(f"Shotput: Normal parsed base path: {base_path}")
             
             # Parse the file name token (always use filename-only logic for scene render path)
             filename = token_parser.parse_filename_only(node_props.file_name_token, passname=pass_name)
@@ -440,11 +653,14 @@ class OT_Update_Version(bpy.types.Operator):
             # Combine to create full render path with sequence padding and extension
             full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
             
+            # Normalize path separators for consistency (use OS-appropriate separators)
+            from pathlib import Path
+            full_path = str(Path(full_path))
+            
             # Update scene render settings
             context.scene.render.filepath = full_path
             
             logger.info(f"Updated scene render filepath to: {full_path}")
-            print(f"Shotput: Updated scene render path to: {full_path}")
             
         except Exception as e:
             logger.error(f"Error updating scene render path: {e}")

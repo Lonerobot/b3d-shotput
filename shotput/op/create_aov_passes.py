@@ -4,6 +4,7 @@ from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
 from ..utils.lazy_hookup import auto_connect_node
+from ..utils.color_utils import store_original_node_color
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_AOV_Passes(bpy.types.Operator):
@@ -60,6 +61,10 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         file_output.use_custom_color = True
         file_output.color = (0.7, 0.4, 0.2)  # Darker, more muted orange
         file_output.width = 500
+        
+        # Store the original color for potential path linking visual feedback
+        store_original_node_color(file_output)
+        
         # Position the node (find a good spot)
         file_output.location = (400, -200)  # Offset below core passes
         
