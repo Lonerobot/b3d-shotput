@@ -233,9 +233,18 @@ class SHOTPUT_OT_TogglePathLinking(bpy.types.Operator):
                 # Back up the current root folder token
                 shotput_data.root_folder_token_backup = shotput_data.root_folder_token
                 print(f"Shotput: Backed up root folder token: {shotput_data.root_folder_token_backup}")
-                # Set a default simple token for linked nodes
-                shotput_data.root_folder_token = "{passname}"
-                print(f"Shotput: Set simple token: {shotput_data.root_folder_token}")
+                
+                # Set appropriate token based on node type and format
+                if (node.name == "Shotput_Data_Passes" and 
+                    hasattr(node, 'format') and 
+                    node.format.file_format == 'OPEN_EXR_MULTILAYER'):
+                    # For data passes with multilayer EXR, include filename token
+                    shotput_data.root_folder_token = "{passname}"
+                    print(f"Shotput: Set multilayer EXR token: {shotput_data.root_folder_token}")
+                else:
+                    # Default simple token for other nodes
+                    shotput_data.root_folder_token = "{passname}"
+                    print(f"Shotput: Set simple token: {shotput_data.root_folder_token}")
         else:
             # Disabling path linking
             if shotput_data.root_folder_token_backup:
@@ -457,16 +466,36 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box = layout.box()
         box.label(text="Create Passes", icon='NODETREE')
         
-        # 4x1 horizontal layout for operators with increased height
-        row = box.row(align=True)
-        row.scale_y = 1.5
-        row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Core")
-        row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Composite")
-        row.operator("shotput.create_aov_passes", icon='STRIP_COLOR_02', text="AOV")
-        row.operator("shotput.create_data_passes", icon='STRIP_COLOR_01', text="Data")
+
         
-        box.prop(shotput, "create_composite_from_core", text="Create Linked Composite Node from Core")
+        if shotput.use_render_layer_channels:
+            # Render Layer Channels mode - only show Core operator
+            row = box.row()
+            row.scale_y = 1.5
+            row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Create All Passes (From Render Layer)")
+            
+            # Add helpful info
+            col = box.column()
+            col.scale_y = 0.8
+            col.label(text="Creates a shotput file output with all enabled render layer passes", icon="INFO")
+            
+        else:
+            # Manual mode - show all operators
+            # 4x1 horizontal layout for operators with increased height
+            row = box.row(align=True)
+            row.scale_y = 1.5
+            row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Core")
+            row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Composite")
+            row.operator("shotput.create_aov_passes", icon='STRIP_COLOR_02', text="AOV")
+            row.operator("shotput.create_data_passes", icon='STRIP_COLOR_01', text="Data")
+        
+        # Only show these options in manual mode
+        if not shotput.use_render_layer_channels:
+            box.prop(shotput, "create_composite_from_core", text="Create Linked Composite Node from Core")
+            
         box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")
+        # Add the "Use Render Layer Channels" checkbox
+        box.prop(shotput, "use_render_layer_channels", text="Use Render Layer Channels")
 
         # Path Tokens Box - Root Folder and File Name with icon operators
         box = layout.box()
@@ -490,78 +519,87 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         grid.prop_enum(shotput, "output_format", 'OPEN_EXR')
         grid.prop_enum(shotput, "output_format", 'OPEN_EXR_MULTILAYER')
 
-        # Core Passes UIList (collapsible, closed by default)
-        box = layout.box()
-        row = box.row()
-        expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
-        row.prop(shotput, "expand_core_ui", 
-                icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
-                icon_only=True, emboss=False)
-        row.label(text="Core Passes", icon='STRIP_COLOR_05')
-        
-        if expand_core:
-            box.prop(shotput, "core_override", text="Core Name Override")
+        # Only show pass selection sections in manual mode
+        if not shotput.use_render_layer_channels:
+            # Core Passes UIList (collapsible, closed by default)
+            box = layout.box()
             row = box.row()
-            row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
-            col = row.column(align=True)
-            col.operator("shotput.core_pass_add", icon='ADD', text="")
-            col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
-            col.separator()
-            col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
-            col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
+            expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
+            row.prop(shotput, "expand_core_ui", 
+                    icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
+                    icon_only=True, emboss=False)
+            row.label(text="Core Passes", icon='STRIP_COLOR_05')
+            
+            if expand_core:
+                box.prop(shotput, "core_override", text="Core Name Override")
+                row = box.row()
+                row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
+                col = row.column(align=True)
+                col.operator("shotput.core_pass_add", icon='ADD', text="")
+                col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
+                col.separator()
+                col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
+                col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
 
-        # AOV Passes UIList (collapsible, closed by default)
-        box = layout.box()
-        row = box.row()
-        expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
-        row.prop(shotput, "expand_aov_ui", 
-                icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
-                icon_only=True, emboss=False)
-        row.label(text="AOV Passes", icon='STRIP_COLOR_02')
-        
-        if expand_aov:
-            box.prop(shotput, "aov_override", text="AOV Name Override")
-            
-            # Add scan button for shader AOVs
+            # AOV Passes UIList (collapsible, closed by default)
+            box = layout.box()
             row = box.row()
-            row.operator("shotput.scan_shader_aovs", text="Scan Scene for AOVs", icon='VIEWZOOM')
+            expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
+            row.prop(shotput, "expand_aov_ui", 
+                    icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
+                    icon_only=True, emboss=False)
+            row.label(text="AOV Passes", icon='STRIP_COLOR_02')
             
-            row = box.row()
-            row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
-            col = row.column(align=True)
-            col.operator("shotput.aov_pass_add", icon='ADD', text="")
-            col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
-            col.separator()
-            col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
-            col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
+            if expand_aov:
+                box.prop(shotput, "aov_override", text="AOV Name Override")
+                
+                # Add scan button for shader AOVs
+                row = box.row()
+                row.operator("shotput.scan_shader_aovs", text="Scan Scene for AOVs", icon='VIEWZOOM')
+                
+                row = box.row()
+                row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
+                col = row.column(align=True)
+                col.operator("shotput.aov_pass_add", icon='ADD', text="")
+                col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
+                col.separator()
+                col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
+                col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
 
-        # Data Passes Section (collapsible, closed by default)
-        box = layout.box()
-        row = box.row()
-        expand_data = shotput.expand_data_ui if hasattr(shotput, 'expand_data_ui') else False
-        row.prop(shotput, "expand_data_ui", 
-                icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
-                icon_only=True, emboss=False)
-        row.label(text="Data Passes", icon='STRIP_COLOR_01')
-        
-        if expand_data:
-            # Basic data passes in 3x2 grid with toggle buttons
-            box.label(text="Basic Passes")
-            grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
-            grid.prop(shotput, "z", text="Depth", toggle=True)
-            grid.prop(shotput, "normal", text="Normal", toggle=True)
-            grid.prop(shotput, "vector", text="Vector", toggle=True)
-            grid.prop(shotput, "position", text="UV", toggle=True)
-            grid.prop(shotput, "mist", text="Mist", toggle=True)
-            grid.prop(shotput, "occlusion", text="AO", toggle=True)
+            # Data Passes Section (collapsible, closed by default)
+            box = layout.box()
+            row = box.row()
+            expand_data = shotput.expand_data_ui if hasattr(shotput, 'expand_data_ui') else False
+            row.prop(shotput, "expand_data_ui", 
+                    icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
+                    icon_only=True, emboss=False)
+            row.label(text="Data Passes", icon='STRIP_COLOR_01')
             
-            # Cryptomatte passes with label and 3x1 grid
-            box.separator()
-            box.label(text="Cryptomatte")
-            crypto_grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
-            crypto_grid.prop(shotput, "crypto_object", text="Object", toggle=True)
-            crypto_grid.prop(shotput, "crypto_material", text="Material", toggle=True)
-            crypto_grid.prop(shotput, "crypto_asset", text="Asset", toggle=True)
+            if expand_data:
+                # Basic data passes in 3x2 grid with toggle buttons
+                box.label(text="Basic Passes")
+                grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+                grid.prop(shotput, "z", text="Depth", toggle=True)
+                grid.prop(shotput, "normal", text="Normal", toggle=True)
+                grid.prop(shotput, "vector", text="Vector", toggle=True)
+                grid.prop(shotput, "position", text="UV", toggle=True)
+                grid.prop(shotput, "mist", text="Mist", toggle=True)
+                grid.prop(shotput, "occlusion", text="AO", toggle=True)
+                
+                # Volume passes with label and 2x1 grid
+                box.separator()
+                box.label(text="Volume")
+                volume_grid = box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
+                volume_grid.prop(shotput, "volume_direct", text="Direct", toggle=True)
+                volume_grid.prop(shotput, "volume_indirect", text="Indirect", toggle=True)
+                
+                # Cryptomatte passes with label and 3x1 grid
+                box.separator()
+                box.label(text="Cryptomatte")
+                crypto_grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+                crypto_grid.prop(shotput, "crypto_object", text="Object", toggle=True)
+                crypto_grid.prop(shotput, "crypto_material", text="Material", toggle=True)
+                crypto_grid.prop(shotput, "crypto_asset", text="Asset", toggle=True)
 
         # Preset Management Box
         box = layout.box()
@@ -685,7 +723,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         # Create Linked Composite button - only show for File Output nodes
         if node.type == 'OUTPUT_FILE':
             row = box.row()
-            row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Create Linked Composite Node from Core")
+            row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Create Linked Composite Node")
         
         # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
         if node.type == 'OUTPUT_FILE':

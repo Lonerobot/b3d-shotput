@@ -1,6 +1,5 @@
 
 import bpy
-from .utils.defaults import initialize_default_passes
 
 def update_path_linked(self, context):
     """Apply or remove visual feedback when path linking is toggled"""
@@ -259,6 +258,16 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
         description="Enable Ambient Occlusion pass",
         default=False
     )
+    volume_direct: bpy.props.BoolProperty(
+        name="Volume Direct",
+        description="Enable Volume Direct pass",
+        default=False
+    )
+    volume_indirect: bpy.props.BoolProperty(
+        name="Volume Indirect", 
+        description="Enable Volume Indirect pass",
+        default=False
+    )
     crypto_object: bpy.props.BoolProperty(
         name="Crypto Object",
         description="Enable Cryptomatte Object pass",
@@ -286,6 +295,13 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
     lazy_hook_up: bpy.props.BoolProperty(
         name="Lazy Hook-up",
         description="Automatically connect File Output nodes to render layer outputs when created",
+        default=False
+    )
+    
+    # Use Render Layer Channels option
+    use_render_layer_channels: bpy.props.BoolProperty(
+        name="Use Render Layer Channels",
+        description="Create file output nodes using all available render layer channels instead of manual pass selection",
         default=False
     )
     
@@ -322,16 +338,10 @@ def register():
     bpy.types.CompositorNodeOutputFile.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     bpy.types.CompositorNodeComposite.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     
-    # Initialize default passes immediately if possible, otherwise use timer
-    try:
-        if hasattr(bpy.context, 'scene') and bpy.context.scene:
-            initialize_default_passes()
-        else:
-            # Use timer if no scene context available yet
-            bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
-    except Exception:
-        # Fallback to timer initialization
-        bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
+    # Don't initialize defaults at startup - let them load lazily when needed
+    # This prevents unnecessary JSON loading every time Blender starts
+    # The defaults will be initialized when the user first opens the Shotput UI
+    # or creates their first node
 
 def unregister():
     for cls in reversed(classes):

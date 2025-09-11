@@ -1,5 +1,4 @@
 import bpy
-import logging
 
 from . import __package_name__
 from .utils.log import LoggerFactory
@@ -9,14 +8,6 @@ class ShotputPreferences(bpy.types.AddonPreferences):
     """Preferences class: Preferences for the Shotput add-on"""
     bl_idname = __package_name__
 
-    # enable debug mode
-    toggle_debug_mode:  bpy.props.BoolProperty(
-        name="Enable Debugging Mode (Increases the messages sent to the console)",
-        description="Enable debugging mode",
-        default=True,
-       update=lambda self, context: self.set_logging_preference()
-    )
-    
     # versioning preferences
     auto_create_version_folders: bpy.props.BoolProperty(
         name="Auto-Create Version Folders",
@@ -51,17 +42,6 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         default='OPEN_EXR_MULTILAYER'
     )
 
-
-
-    def set_logging_preference(self):
-        if self.toggle_debug_mode:
-            LoggerFactory.set_level(logging.DEBUG)
-            logger.debug("Debug Logger Enabled")
-        else:
-            LoggerFactory.set_level(logging.INFO)
-
-        logger.info(f'Updated Logging Level - {logger.level}')
-
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
 
@@ -72,7 +52,6 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         box.label(text="General Settings", icon="PREFERENCES")
         col = box.column(align=True)
 
-        col.prop(self, "toggle_debug_mode")
         col.prop(self, "auto_create_version_folders")
         
         # Core Pass Settings

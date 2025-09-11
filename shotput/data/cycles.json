@@ -1,0 +1,91 @@
+{
+  "_info": "Comprehensive Cycles preset with all core and AOV passes for testing render layer mappings",
+  "_description": "This preset includes all non-data passes that have mappings in Blender's Cycles engine",
+  "_engine": "CYCLES",
+  "_version": "Blender 4.5+",
+  
+  "core_passes": [
+    "Beauty",
+    "Shadow", 
+    "Diffuse",
+    "Diffuse_Direct",
+    "Diffuse_Indirect",
+    "Diffuse_Color",
+    "Glossy",
+    "Glossy_Direct", 
+    "Glossy_Indirect",
+    "Glossy_Color",
+    "Transmission",
+    "Transmission_Direct",
+    "Transmission_Indirect", 
+    "Transmission_Color",
+    "Subsurface",
+    "Subsurface_Direct",
+    "Subsurface_Indirect",
+    "Subsurface_Color",
+    "Emission",
+    "Environment"
+  ],
+  
+  "aovs": [
+    "AO",
+    "Alpha",
+    "IndexOB",
+    "IndexMA"
+  ],
+  
+  "data_passes": [
+    "z",
+    "mist", 
+    "normal",
+    "vector",
+    "position",
+    "occlusion",
+    "uv",
+    "object_index",
+    "material_index",
+    "grease_pencil",
+    "crypto_object",
+    "crypto_material",
+    "crypto_asset"
+  ],
+  
+  "render_layer": "ViewLayer",
+  "variant": "CYCLES",
+  "core_override": "",
+  "aov_override": "",
+  "root_folder_token": "{workdir}/render/{renderlayer}_{passname}_{variant}/v001",
+  "file_name_token": "{renderlayer}_{passname}_{variant}",
+  
+  "default_file_format": "OPEN_EXR",
+  "file_format_overrides": {
+    "core": "OPEN_EXR_MULTILAYER",
+    "aov": "OPEN_EXR", 
+    "data": "OPEN_EXR_MULTILAYER"
+  },
+  
+  "data_format_settings": {
+    "color_depth": "32",
+    "exr_codec": "DWAA"
+  },
+  
+  "create_composite_from_core": true,
+  "expand_core_ui": true,
+  "expand_aov_ui": true,
+  "expand_data_ui": true,
+  
+  "_mapping_notes": {
+    "Beauty": "Maps to Image/Combined output",
+    "Shadow": "Maps to Shadow output", 
+    "Diffuse": "Maps to DiffDir, DiffInd, DiffCol outputs",
+    "Glossy": "Maps to GlossDir, GlossInd, GlossCol outputs",
+    "Transmission": "Maps to TransDir, TransInd, TransCol outputs", 
+    "Subsurface": "Maps to SubsurfaceDir, SubsurfaceInd, SubsurfaceCol outputs",
+    "Emission": "Maps to Emit output",
+    "Environment": "Maps to Env output",
+    "AO": "Maps to AO output",
+    "Alpha": "Maps to Alpha output",
+    "IndexOB": "Maps to IndexOB output",
+    "IndexMA": "Maps to IndexMA output"
+  }
+}

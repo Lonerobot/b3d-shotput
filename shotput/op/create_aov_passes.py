@@ -13,6 +13,30 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
     bl_description = "Create file output nodes for AOV passes"
     bl_options = {'REGISTER', 'UNDO'}
     
+    @classmethod
+    def poll(cls, context):
+        """Only enable if required fields are filled and we have AOV passes"""
+        if not (context.space_data and 
+                context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'CompositorNodeTree'):
+            return False
+        
+        shotput = context.scene.shotput
+        
+        # Check required fields
+        required_fields = [
+            shotput.render_layer.strip(),
+            shotput.variant.strip(),
+            shotput.root_folder_token.strip(),
+            shotput.file_name_token.strip()
+        ]
+        
+        if not all(required_fields):
+            return False
+        
+        # Check we have AOV passes to create
+        return len(shotput.aov_passes) > 0
+    
     def execute(self, context):
         logger.info("Create AOV Passes operator clicked")
         print("Shotput: Create AOV Passes operator executed")
@@ -65,8 +89,54 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Store the original color for potential path linking visual feedback
         store_original_node_color(file_output)
         
-        # Position the node (find a good spot)
-        file_output.location = (400, -200)  # Offset below core passes
+        # Position the node - check for existing nodes to position relative to them
+        existing_node = None
+        
+        # First priority: Look for any selected node
+        print("Shotput: Looking for selected nodes...")
+        for node in tree.nodes:
+            print(f"Shotput: Node '{node.name}' (type: {node.type}) - selected: {node.select}, location: {node.location}")
+            if node.select:
+                existing_node = node
+                print(f"Shotput: Found selected node: {node.name} at {node.location}")
+                break
+        
+        # Second priority: If no selected nodes found, look for existing Shotput nodes
+        if not existing_node:
+            print("Shotput: No selected nodes found, looking for existing Shotput nodes...")
+            for node in tree.nodes:
+                if (node.type == 'OUTPUT_FILE' and 
+                    hasattr(node, 'shotput_data') and 
+                    node.name.startswith('Shotput_')):
+                    existing_node = node
+                    print(f"Shotput: Found existing Shotput node: {node.name} at {node.location}")
+                    break
+        else:
+            print(f"Shotput: Using selected node: {existing_node.name}")
+            print(f"Shotput: Using existing Shotput node: {existing_node.name}")
+        
+        if existing_node:
+            # Get actual node height for better spacing
+            node_height = existing_node.height if hasattr(existing_node, 'height') else 100
+            
+            # Position based on selected node type and target node type
+            if existing_node.type == 'R_LAYERS':
+                # Position to the right of render layer nodes (file outputs go to the right)
+                x_offset = existing_node.width + 200  # To the right with spacing
+                y_offset = 0  # Same Y level initially
+                new_location = (existing_node.location[0] + x_offset, existing_node.location[1] + y_offset)
+                print(f"Shotput: Positioned AOV node to the RIGHT of render layer at {new_location}")
+            else:
+                # Position below other nodes (file outputs stack vertically)
+                spacing = max(200, node_height + 50)  # At least 200px or node height + 50px spacing
+                new_location = (existing_node.location[0], existing_node.location[1] - spacing)
+                print(f"Shotput: Positioned AOV node BELOW {existing_node.name} at {new_location} (spacing: {spacing})")
+            
+            file_output.location = new_location
+        else:
+            # Default position when no existing nodes found
+            file_output.location = (400, -200)
+            print("Shotput: No existing nodes found, using default position (400, -200)")
         
         # Set up Shotput properties on the node
         node_props = file_output.shotput_data

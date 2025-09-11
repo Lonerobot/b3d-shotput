@@ -5,6 +5,7 @@ from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, apply_data_format_settings, get_sequence_padding
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
+from ..utils.pass_mapping import pass_mapping
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_Data_Passes(bpy.types.Operator):
@@ -12,6 +13,36 @@ class OT_Create_Data_Passes(bpy.types.Operator):
     bl_label = "Create Data Passes"
     bl_description = "Create file output nodes for data passes"
     bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        """Only enable if required fields are filled and we have data passes"""
+        if not (context.space_data and 
+                context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'CompositorNodeTree'):
+            return False
+        
+        shotput = context.scene.shotput
+        
+        # Check required fields
+        required_fields = [
+            shotput.render_layer.strip(),
+            shotput.variant.strip(),
+            shotput.root_folder_token.strip(),
+            shotput.file_name_token.strip()
+        ]
+        
+        if not all(required_fields):
+            return False
+        
+        # Check if any data pass is enabled
+        # NOTE: Cryptomatte order matches Blender's render layer output order: object, asset, material
+        data_pass_properties = [
+            'z', 'mist', 'normal', 'vector', 'position', 'occlusion', 'volume_direct', 'volume_indirect',
+            'crypto_object', 'crypto_asset', 'crypto_material'
+        ]
+        
+        return any(getattr(shotput, prop_name, False) for prop_name in data_pass_properties)
     
     def execute(self, context):
         logger.info("Create Data Passes operator clicked")
@@ -26,6 +57,7 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         shotput_props = scene.shotput
         
         # Collect enabled data passes with proper channel names
+        # NOTE: Cryptomatte order matches Blender's render layer output order: object, asset, material
         data_pass_properties = [
             ('z', 'Depth'),
             ('mist', 'Mist'),
@@ -33,9 +65,11 @@ class OT_Create_Data_Passes(bpy.types.Operator):
             ('vector', 'Motion Vector'),
             ('position', 'Position'),
             ('occlusion', 'Ambient Occlusion'),
+            ('volume_direct', 'Volume Direct'),
+            ('volume_indirect', 'Volume Indirect'),
             ('crypto_object', 'Cryptomatte Object'),
-            ('crypto_material', 'Cryptomatte Material'),
-            ('crypto_asset', 'Cryptomatte Asset')
+            ('crypto_asset', 'Cryptomatte Asset'),
+            ('crypto_material', 'Cryptomatte Material')
         ]
         
         enabled_data_passes = []
@@ -59,6 +93,10 @@ class OT_Create_Data_Passes(bpy.types.Operator):
                     view_layer.use_pass_position = True
                 elif prop_name == 'occlusion':
                     view_layer.use_pass_ambient_occlusion = True
+                elif prop_name == 'volume_direct':
+                    view_layer.use_pass_volume_direct = True
+                elif prop_name == 'volume_indirect':
+                    view_layer.use_pass_volume_indirect = True
                 elif prop_name == 'crypto_object':
                     view_layer.use_pass_cryptomatte_object = True
                 elif prop_name == 'crypto_material':
@@ -67,16 +105,22 @@ class OT_Create_Data_Passes(bpy.types.Operator):
                     view_layer.use_pass_cryptomatte_asset = True
                 
                 # Handle cryptomatte special cases - create 3 channels per type
+                # NOTE: Channel order matches Blender's render layer output order: object, asset, material
                 if prop_name == 'crypto_object':
                     enabled_channel_names.extend(['CryptoObject00', 'CryptoObject01', 'CryptoObject02'])
-                elif prop_name == 'crypto_material':
-                    enabled_channel_names.extend(['CryptoMaterial00', 'CryptoMaterial01', 'CryptoMaterial02'])
                 elif prop_name == 'crypto_asset':
                     enabled_channel_names.extend(['CryptoAsset00', 'CryptoAsset01', 'CryptoAsset02'])
+                elif prop_name == 'crypto_material':
+                    enabled_channel_names.extend(['CryptoMaterial00', 'CryptoMaterial01', 'CryptoMaterial02'])
                 else:
-                    # Use the property name directly (no spaces, explicit names)
-                    channel_name = prop_name  # z, mist, normal, vector, position, occlusion
-                    enabled_channel_names.append(channel_name)
+                    # Use pass mapping to get the correct output socket name
+                    mapping = pass_mapping.get_data_pass_mapping(prop_name)
+                    if mapping:
+                        _, output_socket_name = mapping
+                        enabled_channel_names.append(output_socket_name)
+                    else:
+                        # Fallback to property name for unmapped passes
+                        enabled_channel_names.append(prop_name)
         
         # Check if we have data passes to create
         if len(enabled_data_passes) == 0:
@@ -121,8 +165,53 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         # Store the original color for potential path linking visual feedback
         store_original_node_color(file_output)
         
-        # Position the node (find a good spot)
-        file_output.location = (400, -400)  # Offset below AOV passes
+        # Position the node - check for existing nodes to position relative to them
+        existing_node = None
+        
+        # First priority: Look for any selected node
+        print("Shotput: Looking for selected nodes...")
+        for node in tree.nodes:
+            print(f"Shotput: Node '{node.name}' (type: {node.type}) - selected: {node.select}, location: {node.location}")
+            if node.select:
+                existing_node = node
+                print(f"Shotput: Found selected node: {node.name} at {node.location}")
+                break
+        
+        # Second priority: If no selected nodes found, look for existing Shotput nodes
+        if not existing_node:
+            print("Shotput: No selected nodes found, looking for existing Shotput nodes...")
+            for node in tree.nodes:
+                if (node.type == 'OUTPUT_FILE' and 
+                    hasattr(node, 'shotput_data') and 
+                    node.name.startswith('Shotput_')):
+                    existing_node = node
+                    print(f"Shotput: Found existing Shotput node: {node.name} at {node.location}")
+                    break
+        else:
+            print(f"Shotput: Using selected node: {existing_node.name}")
+        
+        if existing_node:
+            # Get actual node height for better spacing
+            node_height = existing_node.height if hasattr(existing_node, 'height') else 100
+            
+            # Position based on selected node type and target node type
+            if existing_node.type == 'R_LAYERS':
+                # Position to the right of render layer nodes (file outputs go to the right)
+                x_offset = existing_node.width + 200  # To the right with spacing
+                y_offset = 0  # Same Y level initially
+                new_location = (existing_node.location[0] + x_offset, existing_node.location[1] + y_offset)
+                print(f"Shotput: Positioned data node to the RIGHT of render layer at {new_location}")
+            else:
+                # Position below other nodes (file outputs stack vertically)
+                spacing = max(400, node_height + 50)  # At least 400px or node height + 50px spacing (more for data)
+                new_location = (existing_node.location[0], existing_node.location[1] - spacing)
+                print(f"Shotput: Positioned data node BELOW {existing_node.name} at {new_location} (spacing: {spacing})")
+            
+            file_output.location = new_location
+        else:
+            # Default position when no existing nodes found
+            file_output.location = (400, -400)
+            print("Shotput: No existing nodes found, using default position (400, -400)")
         
         # Set up Shotput properties on the node
         node_props = file_output.shotput_data

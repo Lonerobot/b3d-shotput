@@ -1,0 +1,66 @@
+{
+  "_info": "Shotput preset created from Blender scene: CYCLES",
+  "core_passes": [
+    "Beauty",
+    "Shadow",
+    "Diffuse",
+    "Diffuse_Direct",
+    "Diffuse_Indirect",
+    "Diffuse_Color",
+    "Glossy",
+    "Glossy_Direct",
+    "Glossy_Indirect",
+    "Glossy_Color",
+    "Transmission",
+    "Transmission_Direct",
+    "Transmission_Indirect",
+    "Transmission_Color",
+    "Subsurface",
+    "Subsurface_Direct",
+    "Subsurface_Indirect",
+    "Subsurface_Color",
+    "Emission",
+    "Environment",
+    "Line",
+    "gp",
+    "outline",
+    "linework"
+  ],
+  "aovs": [
+    "AO",
+    "Alpha",
+    "IndexOB",
+    "IndexMA"
+  ],
+  "data_passes": [
+    "z",
+    "mist",
+    "normal",
+    "vector",
+    "position",
+    "occlusion",
+    "crypto_object",
+    "crypto_material",
+    "crypto_asset"
+  ],
+  "render_layer": "ViewLayer",
+  "variant": "CYCLES",
+  "core_override": "",
+  "aov_override": "",
+  "root_folder_token": "{workdir}/render/{renderlayer}_{passname}_{variant}/v001",
+  "file_name_token": "{renderlayer}_{passname}_{variant}",
+  "default_file_format": "OPEN_EXR",
+  "file_format_overrides": {
+    "core": "UI",
+    "aov": "UI",
+    "data": "OPEN_EXR_MULTILAYER"
+  },
+  "data_format_settings": {
+    "color_depth": "32",
+    "exr_codec": "ZIP"
+  },
+  "create_composite_from_core": true,
+  "expand_core_ui": true,
+  "expand_aov_ui": true,
+  "expand_data_ui": true
+}

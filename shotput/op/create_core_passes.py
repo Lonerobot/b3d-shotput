@@ -1,7 +1,11 @@
 import bpy
+
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
+from ..utils.lazy_hookup import auto_connect_node
+from ..utils.color_utils import store_original_node_color
+logger = LoggerFactory.logger_obj()
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
 
@@ -12,6 +16,34 @@ class OT_Create_Core_Passes(bpy.types.Operator):
     bl_label = "Create Core Passes"
     bl_description = "Create file output nodes for core passes"
     bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        """Only enable if required fields are filled and we have core passes or render layer channels mode"""
+        if not (context.space_data and 
+                context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'CompositorNodeTree'):
+            return False
+        
+        shotput = context.scene.shotput
+        
+        # Check required fields
+        required_fields = [
+            shotput.render_layer.strip(),
+            shotput.variant.strip(),
+            shotput.root_folder_token.strip(),
+            shotput.file_name_token.strip()
+        ]
+        
+        if not all(required_fields):
+            return False
+        
+        # If in "Use Render Layer Channels" mode, always enable (we'll scan render layer)
+        if shotput.use_render_layer_channels:
+            return True
+        
+        # Otherwise, check we have core passes to create
+        return len(shotput.core_passes) > 0
     
     def execute(self, context):
         logger.info("Create Core Passes operator clicked")
@@ -25,10 +57,36 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         
         shotput_props = scene.shotput
         
-        # Check if we have core passes to create
-        if len(shotput_props.core_passes) == 0:
-            self.report({'WARNING'}, "No core passes defined")
-            return {'CANCELLED'}
+        # Determine passes to create based on mode
+        if shotput_props.use_render_layer_channels:
+            # Render Layer Channels mode - scan render layer for available outputs
+            render_layer_outputs = self._get_render_layer_outputs(context)
+            if not render_layer_outputs:
+                self.report({'WARNING'}, "No render layer outputs found. Enable some passes in your view layer.")
+                return {'CANCELLED'}
+            
+            # Create pass names from render layer outputs
+            core_pass_names = []
+            for output_name in render_layer_outputs:
+                # Map 'Image' to 'rgba' as specified in requirements
+                if output_name.lower() == 'image':
+                    core_pass_names.append('rgba')
+                else:
+                    # Use Blender's output names directly
+                    core_pass_names.append(output_name)
+            
+            area_name = "all_passes"  # Different area name for render layer mode
+            print(f"Shotput: Render layer mode - found {len(render_layer_outputs)} outputs: {render_layer_outputs}")
+            
+        else:
+            # Manual mode - use defined core passes
+            if len(shotput_props.core_passes) == 0:
+                self.report({'WARNING'}, "No core passes defined")
+                return {'CANCELLED'}
+            
+            core_pass_names = [core_pass.name for core_pass in shotput_props.core_passes]
+            # Determine area name - use core_override if present, otherwise default to "core"
+            area_name = shotput_props.core_override.strip() if shotput_props.core_override.strip() else "core"
         
         # Check if we're in Compositor workspace
         if not context.scene.use_nodes:
@@ -41,10 +99,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             self.report({'ERROR'}, "No compositor node tree found")
             return {'CANCELLED'}
         
-        # Determine area name - use core_override if present, otherwise default to "core"
-        area_name = shotput_props.core_override.strip() if shotput_props.core_override.strip() else "core"
-        
-        # Create node label: render_layer.area.variant
+        # Create node label: render_layer.area.variant (area_name set above based on mode)
         node_label = f"{shotput_props.render_layer}.{area_name}.{shotput_props.variant}"
         
         # Create File Output node
@@ -57,16 +112,66 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         core_format = get_file_format_for_pass_type("core", shotput_props.output_format)
         file_output.format.file_format = core_format
         
-        # Set node color - darker blue for core passes
+        # Set node color - different colors for different modes
         file_output.use_custom_color = True
-        file_output.color = (0.25, 0.45, 0.7)  # Darker, more muted blue
+        if shotput_props.use_render_layer_channels:
+            # Purple color matching render layer node for "Use Render Layer Channels" mode
+            file_output.color = (0.510, 0.204, 0.294)  # Purple like render layer
+        else:
+            # Blue color for manual core passes mode
+            file_output.color = (0.25, 0.45, 0.7)  # Darker, more muted blue
         file_output.width = 500  # Set a reasonable width for visibility
         
         # Store the original color for potential path linking visual feedback
         store_original_node_color(file_output)
         
-        # Position the node (find a good spot)
-        file_output.location = (400, 0)
+        # Position the node - check for existing nodes to position relative to them
+        existing_node = None
+        
+        # First priority: Look for any selected node
+        print("Shotput: Looking for selected nodes...")
+        for node in tree.nodes:
+            print(f"Shotput: Node '{node.name}' (type: {node.type}) - selected: {node.select}, location: {node.location}")
+            if node.select:
+                existing_node = node
+                print(f"Shotput: Found selected node: {node.name} at {node.location}")
+                break
+        
+        # Second priority: If no selected nodes found, look for existing Shotput nodes
+        if not existing_node:
+            print("Shotput: No selected nodes found, looking for existing Shotput nodes...")
+            for node in tree.nodes:
+                if (node.type == 'OUTPUT_FILE' and 
+                    hasattr(node, 'shotput_data') and 
+                    node.name.startswith('Shotput_')):
+                    existing_node = node
+                    print(f"Shotput: Found existing Shotput node: {node.name} at {node.location}")
+                    break
+        else:
+            print(f"Shotput: Using selected node: {existing_node.name}")
+        
+        if existing_node:
+            # Get actual node height for better spacing
+            node_height = existing_node.height if hasattr(existing_node, 'height') else 100
+            
+            # Position based on selected node type and target node type
+            if existing_node.type == 'R_LAYERS':
+                # Position to the right of render layer nodes (file outputs go to the right)
+                x_offset = existing_node.width + 200  # To the right with spacing
+                y_offset = 0  # Same Y level initially
+                new_location = (existing_node.location[0] + x_offset, existing_node.location[1] + y_offset)
+                print(f"Shotput: Positioned core node to the RIGHT of render layer at {new_location}")
+            else:
+                # Position below other nodes (file outputs stack vertically)
+                spacing = max(200, node_height + 50)  # At least 200px or node height + 50px spacing
+                new_location = (existing_node.location[0], existing_node.location[1] - spacing)
+                print(f"Shotput: Positioned core node BELOW {existing_node.name} at {new_location} (spacing: {spacing})")
+            
+            file_output.location = new_location
+        else:
+            # Default position when no existing nodes found
+            file_output.location = (400, 0)
+            print("Shotput: No existing nodes found, using default position (400, 0)")
         
         # Set up Shotput properties on the node
         node_props = file_output.shotput_data
@@ -113,8 +218,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             file_extension = format_extensions.get(core_format, 'png')
             
             # Configure file slots for each core pass
-            for i, core_pass in enumerate(shotput_props.core_passes):
-                pass_name = core_pass.name
+            for i, pass_name in enumerate(core_pass_names):
                 
                 # Parse the file name token with specific pass name
                 resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=pass_name)
@@ -130,7 +234,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 
                 # Add pass to stored passes
                 stored_pass = node_props.stored_passes.add()
-                stored_pass.name = core_pass.name
+                stored_pass.name = pass_name
                 
         elif core_format == 'OPEN_EXR':
             # Single channel EXR: base_path = rootpath, file_slots = filename_token + .#### + extension
@@ -138,8 +242,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             file_output.base_path = resolved_base_path
             
             # Configure file slots for each core pass
-            for i, core_pass in enumerate(shotput_props.core_passes):
-                pass_name = core_pass.name
+            for i, pass_name in enumerate(core_pass_names):
                 
                 # Parse the file name token with specific pass name
                 resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=pass_name)
@@ -155,7 +258,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 
                 # Add pass to stored passes
                 stored_pass = node_props.stored_passes.add()
-                stored_pass.name = core_pass.name
+                stored_pass.name = pass_name
                 
         elif core_format == 'OPEN_EXR_MULTILAYER':
             # Multi channel EXR: base_path = rootpath + filename_token + .####, file_slots = channel names only
@@ -173,11 +276,14 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 print(f"Shotput: After removal: {len(file_output.file_slots)} slots remaining")
 
             # Configure file slots for each core pass using the working slot recreation approach
-            for i, core_pass in enumerate(shotput_props.core_passes):
-                pass_name = core_pass.name
+            for i, pass_name in enumerate(core_pass_names):
                 
-                # Convert "Beauty" to "rgba" for Nuke compatibility
-                channel_name = "rgba" if pass_name.lower() == "beauty" else pass_name.lower()
+                # In render layer mode, pass_name might already be 'rgba' from Image mapping
+                # Otherwise convert "Beauty" to "rgba" for Nuke compatibility
+                if pass_name.lower() == "beauty":
+                    channel_name = "rgba"
+                else:
+                    channel_name = pass_name.lower()
                 
                 # Add new slot with desired name (all slots now work properly)
                 file_output.file_slots.new(channel_name)
@@ -185,7 +291,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 
                 # Add pass to stored passes
                 stored_pass = node_props.stored_passes.add()
-                stored_pass.name = core_pass.name
+                stored_pass.name = pass_name
         
         else:
             # Fallback for other formats - use the old behavior
@@ -193,8 +299,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             file_output.base_path = resolved_base_path
             
             # Configure file slots for each core pass
-            for i, core_pass in enumerate(shotput_props.core_passes):
-                pass_name = core_pass.name
+            for i, pass_name in enumerate(core_pass_names):
                 
                 # Parse the file name token with specific pass name
                 resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=pass_name)
@@ -209,12 +314,14 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 
                 # Add pass to stored passes
                 stored_pass = node_props.stored_passes.add()
-                stored_pass.name = core_pass.name
+                stored_pass.name = pass_name
         
-        print(f"Shotput: Created core passes node '{node_label}' with {len(shotput_props.core_passes)} passes")
+        pass_count = len(core_pass_names)
+        mode_desc = "from render layer" if shotput_props.use_render_layer_channels else "manual"
+        print(f"Shotput: Created {mode_desc} core passes node '{node_label}' with {pass_count} passes")
         print(f"Shotput: Using format: {core_format} (UI setting: {shotput_props.output_format})")
         print(f"Shotput: Base path set to: {file_output.base_path}")
-        logger.info(f"Created core passes file output node '{node_label}' with {len(shotput_props.core_passes)} passes")
+        logger.info(f"Created {mode_desc} core passes file output node '{node_label}' with {pass_count} passes")
         
         # Create composite node if requested
         composite_node = None
@@ -222,7 +329,6 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             composite_node = self._create_composite_node(context, tree, shotput_props, token_parser, file_output)
         
         # Auto-connect nodes if lazy hook-up is enabled
-        core_pass_names = [core_pass.name for core_pass in shotput_props.core_passes]
         auto_connect_node(context, file_output, core_pass_names)
         
         if composite_node:
@@ -232,10 +338,244 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         file_output.select = True
         tree.nodes.active = file_output
         
+        pass_count = len(core_pass_names)
+        mode_desc = "from render layer" if shotput_props.use_render_layer_channels else "manual"
         composite_msg = " and composite node" if composite_node else ""
-        self.report({'INFO'}, f"Created core passes node '{node_label}' with {len(shotput_props.core_passes)} passes{composite_msg}")
+        self.report({'INFO'}, f"Created {mode_desc} passes node '{node_label}' with {pass_count} passes{composite_msg}")
         
         return {'FINISHED'}
+    
+    def _get_render_layer_outputs(self, context):
+        """
+        Scan the active render layer for available outputs.
+        Returns a list of output socket names that are available and actually functional.
+        Filters out deprecated passes that have no real connection.
+        """
+        # Try to find a Render Layers node in the compositor
+        tree = context.scene.node_tree
+        if not tree:
+            return []
+        
+        render_layer_node = None
+        created_temporary_node = False
+        
+        # Look for existing render layer node
+        for node in tree.nodes:
+            if node.type == 'R_LAYERS':
+                render_layer_node = node
+                break
+        
+        if not render_layer_node:
+            # No render layer node found, create one temporarily to get outputs
+            render_layer_node = tree.nodes.new(type='CompositorNodeRLayers')
+            created_temporary_node = True
+        
+        # Get all output socket names that are actually functional
+        available_outputs = []
+        view_layer = context.view_layer
+        
+        for output in render_layer_node.outputs:
+            output_name = output.name
+            
+            # Skip alpha socket (we don't typically need separate alpha)
+            if output_name.lower() == 'alpha':
+                continue
+            
+            # Skip deprecated passes - check for "Deprecated" in socket name
+            if 'deprecated' in output_name.lower():
+                print(f"Shotput: Skipping deprecated pass: {output_name}")
+                continue
+            
+            # Check if the output socket is actually enabled/functional
+            # Some passes exist as sockets but aren't available in certain engines
+            is_functional = self._is_output_socket_functional(output, render_layer_node, view_layer, context.scene)
+            
+            if is_functional:
+                available_outputs.append(output_name)
+            else:
+                print(f"Shotput: Skipping non-functional pass: {output_name}")
+        
+        # ONLY clean up if we explicitly created a temporary node AND it's not connected
+        if created_temporary_node and not any(output.is_linked for output in render_layer_node.outputs):
+            tree.nodes.remove(render_layer_node)
+            print("Shotput: Removed temporary render layer node after scanning")
+        
+        print(f"Shotput: Found {len(available_outputs)} functional render layer outputs: {available_outputs}")
+        return available_outputs
+    
+    def _is_output_socket_functional(self, output_socket, render_layer_node, view_layer, scene):
+        """
+        Check if a render layer output socket is actually functional by testing if it's enabled
+        and available in the current render engine. This helps filter out passes that exist
+        in the socket list but aren't actually supported by the current engine/settings.
+        """
+        output_name = output_socket.name
+        output_lower = output_name.lower()
+        render_engine = scene.render.engine
+        
+        # Always include basic image output
+        if output_lower in ['image', 'combined', 'beauty']:
+            return True
+        
+        # Engine-specific filtering for known problematic passes
+        if render_engine in ['BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
+            # EEVEE doesn't support these passes even though they might appear as sockets
+            if output_lower in ['uv', 'indexob', 'indexma']:
+                return False
+            
+            # EEVEE doesn't support indirect lighting passes
+            if 'ind' in output_lower and ('diff' in output_lower or 'gloss' in output_lower or 
+                                        'trans' in output_lower or 'subsurface' in output_lower):
+                return False
+            
+            # EEVEE doesn't support volume indirect
+            if output_lower == 'volumeind':
+                return False
+        
+        # Check if the pass is actually enabled in view layer settings
+        # This ensures we only create outputs for passes the user has explicitly enabled
+        return self._is_pass_enabled_in_view_layer(output_name, view_layer, scene)
+    
+    def _is_pass_enabled_in_view_layer(self, output_name, view_layer, scene):
+        """
+        Check if a pass is enabled in the view layer settings.
+        This is a more targeted check than the previous _is_pass_functional method.
+        """
+        output_lower = output_name.lower()
+        
+        # Always include basic outputs
+        if output_lower in ['image', 'combined', 'beauty']:
+            return True
+        
+        # Check view layer pass settings - with engine-specific handling
+        pass_checks = {
+            'depth': 'use_pass_z',
+            'z': 'use_pass_z',
+            'normal': 'use_pass_normal',
+            'vector': 'use_pass_vector',
+            'position': 'use_pass_position',
+            'mist': 'use_pass_mist',
+            'ao': 'use_pass_ambient_occlusion',
+            'shadow': 'use_pass_shadow',
+            'emit': 'use_pass_emit',
+            'env': 'use_pass_environment',
+            'diffdir': 'use_pass_diffuse_direct',
+            'diffind': 'use_pass_diffuse_indirect',
+            'diffcol': 'use_pass_diffuse_color',
+            'glossdir': 'use_pass_glossy_direct',
+            'glossind': 'use_pass_glossy_indirect',
+            'glosscol': 'use_pass_glossy_color',
+            'transdir': 'use_pass_transmission_direct',
+            'transind': 'use_pass_transmission_indirect',
+            'transcol': 'use_pass_transmission_color',
+            'subsurfacedir': 'use_pass_subsurface_direct',
+            'subsurfaceind': 'use_pass_subsurface_indirect',
+            'subsurfacecol': 'use_pass_subsurface_color',
+            'indexob': 'use_pass_object_index',
+            'indexma': 'use_pass_material_index',
+            'uv': 'use_pass_uv',
+            'greasepencil': 'use_pass_grease_pencil',
+        }
+        
+        # Engine-specific properties
+        cycles_specific = {
+            'shadowcatcher': 'use_pass_shadow_catcher',
+            'shadow catcher': 'use_pass_shadow_catcher',
+            'volumedir': 'use_pass_volume_direct',
+            'volumeind': 'use_pass_volume_indirect',
+        }
+        
+        eevee_specific = {
+            'transp': 'use_pass_transparent',
+            'bloom': 'use_pass_bloom',
+            'shadow': 'use_pass_shadow',
+            'volumedir': 'use_pass_volume_direct',  # EEVEE also has volume direct
+        }
+        
+        # Check cryptomatte passes
+        if 'cryptomatte' in output_lower:
+            if 'object' in output_lower:
+                return getattr(view_layer, 'use_pass_cryptomatte_object', False)
+            elif 'material' in output_lower:
+                return getattr(view_layer, 'use_pass_cryptomatte_material', False)
+            elif 'asset' in output_lower:
+                return getattr(view_layer, 'use_pass_cryptomatte_asset', False)
+        
+        # Check standard passes
+        view_layer_property = pass_checks.get(output_lower)
+        if view_layer_property:
+            is_enabled = getattr(view_layer, view_layer_property, False)
+            print(f"Shotput: Pass '{output_name}' -> property '{view_layer_property}' = {is_enabled}")
+            return is_enabled
+        
+        # Check engine-specific passes
+        render_engine = scene.render.engine
+        if render_engine == 'CYCLES' and output_lower in cycles_specific:
+            property_name = cycles_specific[output_lower]
+            # Cycles properties are nested under view_layer.cycles
+            is_enabled = getattr(view_layer.cycles, property_name, False) if hasattr(view_layer, 'cycles') else False
+            print(f"Shotput: Cycles pass '{output_name}' -> property 'cycles.{property_name}' = {is_enabled}")
+            return is_enabled
+        elif render_engine in ['BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'] and output_lower in eevee_specific:
+            property_name = eevee_specific[output_lower]
+            # EEVEE properties are nested under view_layer.eevee
+            is_enabled = getattr(view_layer.eevee, property_name, False) if hasattr(view_layer, 'eevee') else False
+            print(f"Shotput: EEVEE pass '{output_name}' -> property 'eevee.{property_name}' = {is_enabled}")
+            return is_enabled
+        
+        # For light group passes and other custom passes, assume they're functional if they exist
+        # (these are harder to validate and usually user-created)
+        if 'light' in output_lower or any(char.isdigit() for char in output_name):
+            print(f"Shotput: Including light/custom pass '{output_name}'")
+            return True
+        
+        # For some special passes that might not have direct view layer properties
+        # but are still functional if they appear in render layer outputs
+        special_passes = {
+            'debug sample count': True,
+            'noisy image': True,
+            'noisy shadow catcher': True, 
+            'denoising normal': True,
+            'denoising albedo': True,
+            'denoising depth': True,
+        }
+        
+        if output_lower in special_passes:
+            print(f"Shotput: Including special pass '{output_name}'")
+            return True
+        
+        # Default to False for unknown passes to be conservative
+        print(f"Shotput: Unknown pass '{output_name}' - excluding")
+        return False
+    
+    def _is_pass_functional(self, output_name, view_layer, scene):
+        """
+        Check if a render layer output pass is actually functional.
+        In "Use Render Layer Channels" mode, we're more permissive and trust
+        that if the render layer has the output, it's probably valid.
+        """
+        output_lower = output_name.lower()
+        
+        # Always include basic image output
+        if output_lower in ['image', 'beauty', 'combined']:
+            return True
+        
+        # Engine-specific filtering for known problematic passes
+        render_engine = scene.render.engine
+        
+        # UV pass is not available in EEVEE engines
+        if output_lower == 'uv':
+            return render_engine == 'CYCLES'
+        
+        # For most other passes in "Use Render Layer Channels" mode,
+        # trust that if the render layer socket exists, it's functional.
+        # This is simpler and more reliable than trying to validate
+        # against complex view layer settings.
+        
+        # Only filter out passes that are clearly not functional
+        # (like deprecated passes, which are already filtered out above)
+        
+        return True
     
     def _create_composite_node(self, context, tree, shotput_props, token_parser, core_node):
         """Create a Shotput Composite node (actual Blender Composite node for main output)"""
@@ -256,8 +596,40 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Store the original color for potential path linking visual feedback
         store_original_node_color(composite_node)
         
-        # Position the node above the core passes (same X, higher Y)
-        composite_node.location = (400, 300)
+        # Position the node above the core passes - check if core node exists, otherwise default
+        if core_node:
+            # Position above the core node with better positioning logic
+            node_height = core_node.height if hasattr(core_node, 'height') else 100
+            spacing = max(150, node_height + 50)
+            composite_node.location = (core_node.location[0], core_node.location[1] + spacing)
+            print(f"Shotput: Positioned composite ABOVE core node at {composite_node.location}")
+        else:
+            # Check if there's any selected node to position relative to
+            selected_node = None
+            for node in tree.nodes:
+                if node.select:
+                    selected_node = node
+                    break
+            
+            if selected_node:
+                # Get actual node height for better spacing
+                node_height = selected_node.height if hasattr(selected_node, 'height') else 100
+                
+                if selected_node.type == 'R_LAYERS':
+                    # Position composite to the right and above render layer
+                    x_offset = selected_node.width + 200  # To the right with spacing
+                    y_offset = 150  # Slightly above for visual hierarchy
+                    composite_node.location = (selected_node.location[0] + x_offset, selected_node.location[1] + y_offset)
+                    print(f"Shotput: Positioned composite to the RIGHT and ABOVE render layer at {composite_node.location}")
+                else:
+                    # Position above other nodes
+                    spacing = max(150, node_height + 50)
+                    composite_node.location = (selected_node.location[0], selected_node.location[1] + spacing)
+                    print(f"Shotput: Positioned composite ABOVE {selected_node.name} at {composite_node.location}")
+            else:
+                # Default position when no nodes are available
+                composite_node.location = (400, 300)
+                print("Shotput: No selected nodes found, using default composite position (400, 300)")
         
         # Set up Shotput properties on the composite node
         comp_props = composite_node.shotput_data
@@ -312,16 +684,29 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
     - Automatically sets up path linking with backup/restore system
     """
     bl_idname = "shotput.create_linked_composite"
-    bl_label = "Create Linked Composite Node from Core"
+    bl_label = "Create Linked Composite Node"
     bl_description = "Create a composite node linked to the selected File Output node or using global UI settings"
     bl_options = {'REGISTER', 'UNDO'}
     
     @classmethod
     def poll(cls, context):
-        # Must be in Compositor workspace
-        return (context.space_data and 
+        """Only enable if required fields are filled and we're in compositor"""
+        if not (context.space_data and 
                 context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'CompositorNodeTree')
+                context.space_data.tree_type == 'CompositorNodeTree'):
+            return False
+        
+        shotput = context.scene.shotput
+        
+        # Check required fields
+        required_fields = [
+            shotput.render_layer.strip(),
+            shotput.variant.strip(),
+            shotput.root_folder_token.strip(),
+            shotput.file_name_token.strip()
+        ]
+        
+        return all(required_fields)
     
     def execute(self, context):
         logger.info("Create Linked Composite operator clicked")
@@ -381,6 +766,10 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         composite_node.select = True
         tree.nodes.active = composite_node
         
+        # Auto-connect composite node if lazy hook-up is enabled
+        if shotput_props.lazy_hook_up:
+            auto_connect_node(context, composite_node)
+        
         # Report success
         linked_msg = f" (linked to {linked_node.name})" if linked_node else " (no linked node found)"
         self.report({'INFO'}, f"Created linked composite node{linked_msg}")
@@ -405,18 +794,59 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         # Set node color - PINK for composite!
         composite_node.use_custom_color = True
         composite_node.color = (0.8, 0.4, 0.8)  # Pink color
-        composite_node.width = 300  # Smaller since it's just routing
+        composite_node.width = 220  # Smaller since it's just routing
         
         # Store original color for visual feedback system
         store_original_node_color(composite_node)
         
-        # Position the node - above linked node if available, otherwise default position
+        # Position the node - use smart positioning based on node type
         if linked_node:
-            # Position above the linked node
-            composite_node.location = (linked_node.location[0], linked_node.location[1] + 300)
+            # Get actual node height for better spacing
+            node_height = linked_node.height if hasattr(linked_node, 'height') else 100
+            
+            if linked_node.type == 'R_LAYERS':
+                # Position composite to the right of render layer nodes
+                x_offset = linked_node.width + 200  # To the right with spacing
+                y_offset = 150  # Slightly above for visual hierarchy
+                composite_node.location = (linked_node.location[0] + x_offset, linked_node.location[1] + y_offset)
+                print(f"Shotput: Positioned composite to the RIGHT of render layer at {composite_node.location}")
+            else:
+                # Position above other node types (file outputs, etc.)
+                spacing = max(100, node_height + 50)  # At least 100px or node height + 50px spacing
+                composite_node.location = (linked_node.location[0], linked_node.location[1] + spacing)
+                print(f"Shotput: Positioned composite ABOVE {linked_node.name} at {composite_node.location}")
         else:
-            # Default position
-            composite_node.location = (400, 300)
+            # Check if there's any selected node to position relative to
+            selected_node = None
+            print("Shotput: Looking for selected nodes...")
+            for node in tree.nodes:
+                print(f"Shotput: Node '{node.name}' (type: {node.type}) - selected: {node.select}, location: {node.location}")
+                if node.select:
+                    selected_node = node
+                    print(f"Shotput: Found selected node: {node.name} at {node.location}")
+                    break
+            
+            if selected_node:
+                # Get actual node height for better spacing
+                node_height = selected_node.height if hasattr(selected_node, 'height') else 100
+                
+                if selected_node.type == 'R_LAYERS':
+                    # Position composite to the right of render layer nodes
+                    x_offset = selected_node.width + 200  # To the right with spacing  
+                    y_offset = 150  # Slightly above for visual hierarchy
+                    new_location = (selected_node.location[0] + x_offset, selected_node.location[1] + y_offset)
+                    composite_node.location = new_location
+                    print(f"Shotput: Positioned composite to the RIGHT of render layer at {new_location}")
+                else:
+                    # Position above other node types
+                    spacing = max(100, node_height + 50)  # At least 100px or node height + 50px spacing
+                    new_location = (selected_node.location[0], selected_node.location[1] + spacing)
+                    composite_node.location = new_location
+                    print(f"Shotput: Positioned composite ABOVE {selected_node.name} at {new_location} (spacing: {spacing})")
+            else:
+                # Default position when no nodes are selected
+                composite_node.location = (400, 300)
+                print("Shotput: No selected nodes found, using default position (400, 300)")
         
         # Make this composite node active so enum functions work correctly
         tree.nodes.active = composite_node

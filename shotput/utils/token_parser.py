@@ -125,6 +125,7 @@ class TokenParser:
     def _parse_linked_path(self, token_string: str, **kwargs) -> str:
         """
         Parse path for a linked node - uses linked node's base path + optional append path.
+        Handles special case for multichannel EXR files which need filename in base path.
         
         Args:
             token_string: String to append to linked path (may contain tokens)
@@ -139,6 +140,51 @@ class TokenParser:
         # Get the linked node's base path
         linked_base_path = self._get_linked_node_base_path()
         
+        # Check if this is a multichannel EXR node (data passes)
+        is_multichannel_exr = self._is_multichannel_exr_node()
+        
+        # Special handling for multichannel EXR nodes
+        if is_multichannel_exr and (token_string == "{passname}" or not token_string.strip()):
+            # For multichannel EXR, we need to rebuild the path with filename
+            # Get the linked node's directory (remove filename from base path if present)
+            linked_path = Path(linked_base_path)
+            
+            # Extract directory and reconstruct with our filename
+            if '.' in linked_path.name and linked_path.suffix:
+                # Base path includes filename, extract directory
+                linked_dir = linked_path.parent
+            else:
+                # Base path is directory only
+                linked_dir = linked_path
+            
+            # Determine the base directory for multichannel EXR
+            if token_string == "{passname}":
+                # If passname token is specified, add passname subdirectory
+                passname = self._resolve_passname()
+                root_folder_parsed = str(linked_dir / passname)
+            else:
+                # If no token specified, use linked directory directly
+                root_folder_parsed = str(linked_dir)
+            
+            # Get and parse the file name token
+            file_name_token = getattr(self.node_properties, 'file_name_token', '') if self.node_properties else ''
+            if file_name_token:
+                filename_parsed = self._parse_normal_path(file_name_token, **kwargs)
+                # Get sequence padding from preferences
+                from .defaults import get_sequence_padding
+                sequence_padding = get_sequence_padding()
+                
+                # Construct the full multichannel EXR path using Path for proper separators
+                full_path = str(Path(root_folder_parsed) / f"{filename_parsed}.{sequence_padding}")
+                logger.debug(f"Multichannel EXR linked path: '{linked_base_path}' -> '{full_path}'")
+                return full_path
+            else:
+                logger.warning("Multichannel EXR node missing file_name_token")
+                # Fallback to directory only
+                logger.debug(f"Multichannel EXR fallback path: '{root_folder_parsed}'")
+                return root_folder_parsed
+        
+        # Standard linked path handling for non-multichannel EXR
         # If token_string is empty, just return the linked path
         if not token_string.strip():
             logger.debug(f"Using linked base path only: {linked_base_path}")
@@ -156,6 +202,32 @@ class TokenParser:
         else:
             logger.debug(f"Using linked base path only: {linked_base_path}")
             return linked_base_path
+    
+    def _is_multichannel_exr_node(self) -> bool:
+        """Check if this node is configured for multichannel EXR format (data passes)"""
+        if not self.node_properties:
+            return False
+            
+        # Check if this is a data pass node
+        pass_name = getattr(self.node_properties, 'pass_name', '')
+        if pass_name == 'data':
+            return True
+            
+        # Also check if we can find the actual node and check its format
+        try:
+            scene = bpy.context.scene
+            if scene and scene.node_tree:
+                # Try to find the node this parser is associated with
+                for node in scene.node_tree.nodes:
+                    if (node.type == 'OUTPUT_FILE' and 
+                        hasattr(node, 'shotput_data') and 
+                        node.shotput_data == self.node_properties):
+                        # Found our node, check its format
+                        return getattr(node.format, 'file_format', '') == 'OPEN_EXR_MULTILAYER'
+        except Exception as e:
+            logger.debug(f"Could not determine node format: {e}")
+            
+        return False
     
     def _get_linked_node_base_path(self) -> str:
         """Get the base path from the linked File Output node"""

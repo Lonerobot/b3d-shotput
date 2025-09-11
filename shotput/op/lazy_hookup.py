@@ -47,14 +47,41 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             self.report({'ERROR'}, "No render layers found in scene")
             return {'CANCELLED'}
         
-        # If multiple render layers and none selected in Shotput properties
+        # Determine which render layer to use
+        target_render_layer = None
+        original_render_layer = None
+        
+        # If multiple render layers, try to find a selected render layer node first
         if len(render_layers) > 1:
-            shotput_props = context.scene.shotput
-            if not shotput_props.render_layer or shotput_props.render_layer not in render_layers:
-                self.report({'ERROR'}, 
-                           f"Multiple render layers found ({', '.join(render_layers)}). "
-                           "Please select one in Shotput properties.")
-                return {'CANCELLED'}
+            # Check if there's a selected render layer node we can use
+            for node in context.scene.node_tree.nodes:
+                if node.type == 'R_LAYERS' and node.select and node != active_node:
+                    target_render_layer = node.layer
+                    print(f"Shotput: Found selected render layer node using layer: {target_render_layer}")
+                    break
+            
+            # If no selected render layer node found, check Shotput properties
+            if not target_render_layer:
+                shotput_props = context.scene.shotput
+                if shotput_props.render_layer and shotput_props.render_layer in render_layers:
+                    target_render_layer = shotput_props.render_layer
+                    print(f"Shotput: Using render layer from Shotput properties: {target_render_layer}")
+                else:
+                    self.report({'ERROR'}, 
+                               f"Multiple render layers found ({', '.join(render_layers)}). "
+                               "Please select a render layer node alongside the file output")
+                    return {'CANCELLED'}
+        else:
+            # Single render layer, use it
+            target_render_layer = render_layers[0]
+            print(f"Shotput: Using single available render layer: {target_render_layer}")
+        
+        # Temporarily set the Shotput render layer property if needed
+        shotput_props = context.scene.shotput
+        if shotput_props.render_layer != target_render_layer:
+            original_render_layer = shotput_props.render_layer
+            shotput_props.render_layer = target_render_layer
+            print(f"Shotput: Temporarily set render layer to '{target_render_layer}'")
         
         # Connect based on node type
         try:
@@ -62,18 +89,18 @@ class OT_Lazy_Hookup(bpy.types.Operator):
                 connections = connect_file_output_to_render_layer(context, active_node)
                 if connections:
                     connection_count = len(connections)
-                    self.report({'INFO'}, f"Connected {connection_count} output(s) to File Output node")
-                    logger.info(f"Manual lazy hook-up: connected {connection_count} outputs")
+                    self.report({'INFO'}, f"Connected {connection_count} output(s) to File Output node using layer '{target_render_layer}'")
+                    logger.info(f"Manual lazy hook-up: connected {connection_count} outputs from layer '{target_render_layer}'")
                 else:
-                    self.report({'WARNING'}, "No matching outputs found to connect")
+                    self.report({'WARNING'}, f"No matching outputs found to connect from layer '{target_render_layer}'")
                     
             elif active_node.type == 'COMPOSITE':
                 success = connect_composite_to_render_layer(context, active_node)
                 if success:
-                    self.report({'INFO'}, "Connected Image output to Composite node")
-                    logger.info("Manual lazy hook-up: connected to Composite node")
+                    self.report({'INFO'}, f"Connected Image output to Composite node from layer '{target_render_layer}'")
+                    logger.info(f"Manual lazy hook-up: connected to Composite node from layer '{target_render_layer}'")
                 else:
-                    self.report({'WARNING'}, "Could not connect to Composite node")
+                    self.report({'WARNING'}, f"Could not connect to Composite node from layer '{target_render_layer}'")
             
             return {'FINISHED'}
             
@@ -81,6 +108,12 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             self.report({'ERROR'}, f"Connection failed: {str(e)}")
             logger.error(f"Manual lazy hook-up failed: {e}")
             return {'CANCELLED'}
+            
+        finally:
+            # Restore original render layer property if we changed it
+            if original_render_layer is not None:
+                shotput_props.render_layer = original_render_layer
+                print(f"Shotput: Restored render layer to '{original_render_layer}'")
 
 
 classes = (

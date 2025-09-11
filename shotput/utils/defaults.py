@@ -24,55 +24,53 @@ def is_valid_shotput_preset(data):
 
 
 def load_default_passes():
-    """Load default passes from JSON file, checking ENV var first"""
-    print("Shotput: load_default_passes() called")
-    
-    # Check for environment variable first
+    """Load default passes from JSON file if SHOTPUT_PRESET_PATH is set"""
+    # Only load if environment variable is set (project-specific presets)
     env_path = os.environ.get('SHOTPUT_PRESET_PATH')
-    if env_path:
-        print(f"Shotput: Found SHOTPUT_PRESET_PATH: {env_path}")
-        env_path = Path(env_path)
-        if env_path.exists():
-            if env_path.is_file():
-                # Direct file path
-                json_files = [env_path]
-            else:
-                # Directory path - search for JSON files
-                json_files = list(env_path.glob('*.json'))
-        else:
-            json_files = []
-            print(f"Shotput: Environment path does not exist: {env_path}")
-    else:
-        # Fallback to addon's default JSON file
-        addon_dir = Path(__file__).parent.parent
-        default_path = addon_dir / "data" / "passes.json"
-        json_files = [default_path]
-        print(f"Shotput: Using default JSON path: {default_path}")
+    if not env_path:
+        # No environment variable set - return minimal defaults
+        return {
+            "core_passes": [],
+            "aovs": [],
+            "data_passes": [],
+            "render_layer": "ViewLayer",
+            "variant": "v001",
+            "core_override": "Core",
+            "aov_override": "AOV",
+            "root_folder_token": "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}",
+            "file_name_token": "{renderlayer}_{passname}_{variant}",
+            "default_file_format": "OPEN_EXR"
+        }
     
-    print(f"Shotput: Found {len(json_files)} JSON files to try")
+    # Environment variable is set - try to load the preset
+    env_path = Path(env_path)
+    json_files = []
+    
+    if env_path.exists():
+        if env_path.is_file():
+            json_files = [env_path]
+        else:
+            # Directory path - search for JSON files
+            json_files = list(env_path.glob('*.json'))
     
     # Try each JSON file until we find a valid Shotput preset
     for json_path in json_files:
-        print(f"Shotput: Trying to load: {json_path}")
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if is_valid_shotput_preset(data):
-                    print(f"Shotput: Loaded preset from {json_path}")
+                    logger.info(f"Loaded preset from {json_path}")
                     return data
-                else:
-                    print(f"Shotput: Skipping invalid preset structure in {json_path}")
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Shotput: Could not read {json_path}: {e}")
+            logger.debug(f"Could not read {json_path}: {e}")
             continue
     
-    # If no valid preset found, return fallback defaults
-    print("Shotput: No valid preset found, using fallback defaults")
+    # If we get here, SHOTPUT_PRESET_PATH was set but no valid preset found
+    logger.warning(f"SHOTPUT_PRESET_PATH set to '{env_path}' but no valid preset found")
     return {
-        "_info": "Fallback defaults - no valid preset found",
-        "core_passes": ["Beauty", "Diffuse", "Specular"],
-        "aovs": ["Ambient Occlusion", "Shadow"],
-        "data_passes": ["z", "normal", "crypto_object"],
+        "core_passes": [],
+        "aovs": [],
+        "data_passes": [],
         "render_layer": "ViewLayer",
         "variant": "v001",
         "core_override": "Core",

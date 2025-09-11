@@ -44,12 +44,13 @@ if "bpy" in locals():
     for module_name in _modules_to_reload:
         if module_name in locals():
             importlib.reload(locals()[module_name])
-else:
-    import bpy
-    from . import preferences
-    from . import properties
-    from . import op
-    from . import ui
+
+import bpy
+import os
+from . import preferences
+from . import properties
+from . import op
+from . import ui
 
 
 def register():
@@ -60,14 +61,18 @@ def register():
     op.register()
     ui.register()
     
-    # Initialize default settings if available
-    try:
-        from .utils.defaults import initialize_default_passes
-        if hasattr(bpy.context, 'scene') and bpy.context.scene:
-            initialize_default_passes()
-    except (ImportError, AttributeError):
-        # Gracefully handle missing utils or no active scene
-        pass
+    # Load project defaults if SHOTPUT_PRESET_PATH is set
+    if os.environ.get('SHOTPUT_PRESET_PATH'):
+        try:
+            from .utils.defaults import initialize_default_passes
+            if hasattr(bpy.context, 'scene') and bpy.context.scene:
+                initialize_default_passes()
+            else:
+                # Use timer if no scene context available yet
+                bpy.app.timers.register(initialize_default_passes, first_interval=0.1)
+        except (ImportError, AttributeError):
+            # Gracefully handle missing utils or no active scene
+            pass
 
     print(f"Shotput v{__version__} registered successfully")
 
