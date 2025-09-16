@@ -28,6 +28,7 @@ bl_info = {
 
 # Module level constants
 __version__ = ".".join(str(x) for x in bl_info["version"])
+__release_stage__ = "beta"  # "alpha", "beta", or "release"
 __author__ = bl_info["author"]
 __package_name__ = __name__.rpartition('.')[0] if '.' in __name__ else __name__
 
@@ -74,7 +75,7 @@ def register():
             # Gracefully handle missing utils or no active scene
             pass
 
-    print(f"Shotput v{__version__} registered successfully")
+    print(f"Shotput v{__version__}-{__release_stage__} registered successfully")
 
 
 def unregister():
@@ -85,7 +86,7 @@ def unregister():
     properties.unregister()
     preferences.unregister()
     
-    print(f"Shotput v{__version__} unregistered successfully")
+    print(f"Shotput v{__version__}-{__release_stage__} unregistered successfully")
 
 
 # Standard Python module execution pattern

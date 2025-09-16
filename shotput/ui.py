@@ -1,5 +1,6 @@
 import bpy
 from . import bl_info
+from . import __release_stage__
 import os
 
 from .utils.log import LoggerFactory
@@ -7,7 +8,7 @@ logger = LoggerFactory.logger_obj()
 
 def get_panel_title():
     """Generate panel title with AYON status if available"""
-    base_title = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
+    base_title = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}-{__release_stage__}"
     
     # Check if AYON environment is present
     if os.getenv("AYON_PROJECT_NAME"):
