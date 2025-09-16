@@ -28,8 +28,8 @@ The TokenParser class provides 16+ dynamic tokens for flexible path construction
 - `{user}` - Active user name
 
 **Context Tokens:**
-- `{blend_name}` - Current blend file name
-- `{scene_name}` - Active scene name
+- `{blendfile}` - Current blend file name
+- `{scenename}` - Active scene name
 
 ### 🎨 Smart File Format Override System
 Intelligent format selection based on pass type and user preferences:
@@ -133,7 +133,7 @@ composite_node.root_folder_token = "composite"
 # Result: Z:/projects/film/seq010/shot020/Beauty_diffuse_v001/008
 
 # Commercial project structure  
-"{project}_{task}_{blend_name}_{passname}_{frame}"
+"{project}_{task}_{blendfile}_{passname}_{frame}"
 # Result: ClientABC_comp_spot_final_beauty_0001
 
 # Data pass with versioning

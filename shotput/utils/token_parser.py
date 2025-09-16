@@ -21,8 +21,20 @@ class TokenParser:
     for File Output nodes.
     
     Usage:
-        parser = TokenParser(node_properties)
-        root_path = parser.parse_token("{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}")
+        parser = TokenParser(node_proper            # Blender-specific tokens
+            'blendfile': 'Blend file name (without extension)',
+            'scenename': 'Active scene name',
+            'frame': 'Current frame number (4 digits)',
+            'camera': 'Active camera name',
+            
+            # Date/time tokens
+            'date': 'Current date (DD-MM-YY)',
+            'time': 'Current time (HH-MM-SS)',
+            
+            # Backward compatibility (deprecated)
+            'blendname': 'Blend file name (deprecated - use blendfile)',
+            'blend_name': 'Blend file name (deprecated - use blendfile)',
+            'scene_name': 'Active scene name (deprecated - use scenename)',  root_path = parser.parse_token("{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}")
         filename = parser.parse_token("{renderlayer}_{passname}_{variant}")
     """
     
@@ -59,10 +71,15 @@ class TokenParser:
             'user': self._resolve_user,
             
             # Blender-specific tokens
-            'blend_name': self._resolve_blend_name,
-            'scene_name': self._resolve_scene_name,
+            'blendfile': self._resolve_blendname,
+            'scenename': self._resolve_scenename,
             'frame': self._resolve_frame,
             'camera': self._resolve_camera,
+            
+            # Backward compatibility aliases (deprecated - use new names)
+            'blendname': self._resolve_blendname,  # Use blendfile instead
+            'blend_name': self._resolve_blendname,  # Use blendfile instead
+            'scene_name': self._resolve_scenename,      # Use scenename instead
             
             # Date/time tokens
             'date': self._resolve_date,
@@ -507,14 +524,14 @@ class TokenParser:
         return self.path_utils.get_user() or "Unknown_User"
     
     # Blender-specific token resolvers
-    def _resolve_blend_name(self) -> str:
+    def _resolve_blendname(self) -> str:
         """Resolve blend file name without extension"""
         blend_filepath = bpy.data.filepath
         if blend_filepath:
             return Path(blend_filepath).stem
         return "untitled"
     
-    def _resolve_scene_name(self) -> str:
+    def _resolve_scenename(self) -> str:
         """Resolve active scene name"""
         if hasattr(bpy.context, 'scene') and bpy.context.scene:
             return bpy.context.scene.name
@@ -567,14 +584,19 @@ class TokenParser:
             'user': 'Current user name',
             
             # Blender-specific tokens
-            'blend_name': 'Blend file name (without extension)',
-            'scene_name': 'Active scene name',
+            'blendfile': 'Blend file name (without extension)',
+            'scenename': 'Active scene name',
             'frame': 'Current frame number (4 digits)',
             'camera': 'Active camera name',
             
             # Date/time tokens
             'date': 'Current date (DD-MM-YY)',
             'time': 'Current time (HH-MM-SS)',
+            
+            # Backward compatibility (deprecated)
+            'blendname': 'Blend file name (deprecated - use blendfile)',
+            'blend_name': 'Blend file name (deprecated - use blendfile)',
+            'scene_name': 'Active scene name (deprecated - use scenename)',
         }
     
     def validate_token_string(self, token_string: str) -> tuple[bool, list[str]]:

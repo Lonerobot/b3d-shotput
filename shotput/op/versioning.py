@@ -1053,7 +1053,7 @@ class OT_Token_Help(bpy.types.Operator):
     bl_options = {'REGISTER'}
     
     def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=650)
+        return context.window_manager.invoke_popup(self, width=750)
     
     def draw(self, context):
         layout = self.layout
@@ -1110,7 +1110,7 @@ class OT_Token_Help(bpy.types.Operator):
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.25)
                     split.label(text=f"{{{token}}}", icon='DOT')
                     split = split.split(factor=0.55)
                     split.label(text=desc)
@@ -1135,16 +1135,16 @@ class OT_Token_Help(bpy.types.Operator):
                     if not value or value in ["Unknown_Project", "Unknown_Task", "Unknown_User"]:
                         value = f"(not in AYON)"
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.3)
                     split.label(text=f"{{{token}}}", icon='DOT')
-                    split = split.split(factor=0.55)
+                    split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.3)
                     split.label(text=f"{{{token}}}", icon='DOT')
-                    split = split.split(factor=0.55)
+                    split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text="→ (not available)")
             
@@ -1153,8 +1153,8 @@ class OT_Token_Help(bpy.types.Operator):
             box.label(text="Blender Context Tokens", icon='BLENDER')
             
             blender_tokens = [
-                ('blend_name', 'Current .blend filename'),
-                ('scene_name', 'Active scene name'),
+                ('blendfile', 'Current .blend filename'),
+                ('scenename', 'Active scene name'),
                 ('frame', 'Current frame number'),
                 ('camera', 'Active camera name'),
             ]
@@ -1163,9 +1163,9 @@ class OT_Token_Help(bpy.types.Operator):
                 try:
                     value = parser._resolve_token(token)
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.3)
                     split.label(text=f"{{{token}}}", icon='DOT')
-                    split = split.split(factor=0.55)
+                    split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
@@ -1189,16 +1189,16 @@ class OT_Token_Help(bpy.types.Operator):
                 try:
                     value = parser._resolve_token(token)
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.3)
                     split.label(text=f"{{{token}}}", icon='DOT')
-                    split = split.split(factor=0.55)
+                    split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
-                    split = row.split(factor=0.15)
+                    split = row.split(factor=0.3)
                     split.label(text=f"{{{token}}}", icon='DOT')
-                    split = split.split(factor=0.55)
+                    split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text="→ (error)")
             
@@ -1212,8 +1212,8 @@ class OT_Token_Help(bpy.types.Operator):
             
             static_examples = [
                 ('workdir', 'Current Blender file directory', 'C:/Projects/MyProject'),
-                ('blend_name', 'Current .blend filename', 'scene_001'),
-                ('scene_name', 'Active scene name', context.scene.name if context.scene else 'Scene'),
+                ('blendfile', 'Current .blend filename', 'scene_001'),
+                ('scenename', 'Active scene name', context.scene.name if context.scene else 'Scene'),
                 ('date', 'Current date', '11-08-25'),
                 ('time', 'Current time', '14-30-45'),
             ]

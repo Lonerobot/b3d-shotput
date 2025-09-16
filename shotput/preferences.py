@@ -19,7 +19,7 @@ class ShotputPreferences(bpy.types.AddonPreferences):
     subpath_token_value: bpy.props.StringProperty(
         name="Subpath Token Value",
         description="Value to use for the {subpath} token in output paths",
-        default="blender/renders"
+        default="renders/blender"
     )
     
     sequence_padding: bpy.props.IntProperty(

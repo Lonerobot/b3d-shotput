@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "shotput"
-version = "1.0.4"
+version = "1.0.5"
 name = "Shotput"
 tagline = "A Blender addon for managing file output nodes for render output"
 type = "add-on"
