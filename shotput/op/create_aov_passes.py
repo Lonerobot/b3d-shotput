@@ -1,5 +1,6 @@
 import bpy
 
+from .. import __package_name__
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
@@ -83,7 +84,8 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         
         # Set node color - darker orange for AOV passes
         file_output.use_custom_color = True
-        file_output.color = (0.7, 0.4, 0.2)  # Darker, more muted orange
+        prefs = context.preferences.addons[__package_name__].preferences
+        file_output.color = prefs.aov_node_color
         file_output.width = 500
         
         # Store the original color for potential path linking visual feedback

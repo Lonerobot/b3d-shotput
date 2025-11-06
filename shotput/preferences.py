@@ -41,6 +41,57 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         ],
         default='OPEN_EXR_MULTILAYER'
     )
+    
+    # Node color preferences
+    core_node_color: bpy.props.FloatVectorProperty(
+        name="Core Node Color",
+        description="Color for core pass nodes (manual mode)",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.25, 0.45, 0.7)  # Blue
+    )
+    
+    core_render_layer_node_color: bpy.props.FloatVectorProperty(
+        name="Core Render Layer Node Color",
+        description="Color for core pass nodes (render layer mode)",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.510, 0.204, 0.294)  # Purple
+    )
+    
+    aov_node_color: bpy.props.FloatVectorProperty(
+        name="AOV Node Color",
+        description="Color for AOV pass nodes",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.7, 0.4, 0.2)  # Orange
+    )
+    
+    data_node_color: bpy.props.FloatVectorProperty(
+        name="Data Node Color",
+        description="Color for data pass nodes",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.6, 0.25, 0.25)  # Red
+    )
+    
+    composite_node_color: bpy.props.FloatVectorProperty(
+        name="Composite Node Color",
+        description="Color for composite nodes",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.8, 0.4, 0.8)  # Pink
+    )
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
@@ -62,6 +113,17 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         col.prop(self, "subpath_token_value")
         col.prop(self, "sequence_padding")   
         col.prop(self, "data_node_format_override")
+        
+        # Node Color Settings
+        box = layout.box()
+        box.label(text="Node Colors", icon="COLOR")
+        col = box.column(align=True)
+        
+        col.prop(self, "core_node_color")
+        col.prop(self, "core_render_layer_node_color")
+        col.prop(self, "aov_node_color")
+        col.prop(self, "data_node_color")
+        col.prop(self, "composite_node_color")
 
 
 def get(context: bpy.types.Context) -> ShotputPreferences:
