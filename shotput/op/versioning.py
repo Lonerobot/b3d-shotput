@@ -537,6 +537,8 @@ class OT_Update_Version(bpy.types.Operator):
             
             # For composite nodes, we need to handle path linking specially
             base_path = ""
+            linked_node = None  # Track the actual linked node for format checking
+            is_linked_multichannel_exr = False  # Track if linked node uses multichannel EXR
             
             print(f"Shotput: Updating scene render path for composite node {composite_node.name}")
             
@@ -577,7 +579,7 @@ class OT_Update_Version(bpy.types.Operator):
                 if linked_node_name and linked_node_name != 'NONE':
                     scene = context.scene
                     if scene and scene.node_tree:
-                        linked_node = scene.node_tree.nodes.get(linked_node_name)
+                        linked_node = scene.node_tree.nodes.get(linked_node_name)  # Store for later format checking
                         if linked_node and hasattr(linked_node, 'base_path'):
                             # Check if the linked node has a valid base path
                             linked_base_path = linked_node.base_path
@@ -602,15 +604,35 @@ class OT_Update_Version(bpy.types.Operator):
                             # Start with the linked node's base path
                             base_path = linked_base_path
                             
+                            # Check if linked node uses multichannel EXR format
+                            if hasattr(linked_node, 'format'):
+                                linked_format = getattr(linked_node.format, 'file_format', '')
+                                is_linked_multichannel_exr = (linked_format == 'OPEN_EXR_MULTILAYER')
+                                print(f"Shotput: Linked node format: {linked_format}, is_multichannel_exr: {is_linked_multichannel_exr}")
+                            
                             # If there's an append path in root_folder_token, add it
                             append_path = getattr(node_props, 'root_folder_token', '')
                             if append_path and append_path.strip():
                                 # Parse the append path with tokens
                                 parsed_append = token_parser.parse_filename_only(append_path, passname=pass_name)
                                 if parsed_append:
-                                    # Use Path to properly combine paths
-                                    from pathlib import Path
-                                    base_path = str(Path(base_path) / parsed_append)
+                                    # For multichannel EXR, extract directory from base_path first
+                                    if is_linked_multichannel_exr:
+                                        # base_path includes filename+padding, extract just the directory
+                                        from pathlib import Path
+                                        base_path_obj = Path(base_path)
+                                        if '.' in base_path_obj.name:
+                                            # Has filename with extension/padding, get parent directory
+                                            base_dir = base_path_obj.parent
+                                        else:
+                                            # Already a directory
+                                            base_dir = base_path_obj
+                                        base_path = str(base_dir / parsed_append)
+                                        print(f"Shotput: Multichannel EXR - extracted dir and added append: {base_path}")
+                                    else:
+                                        # For non-multichannel formats, base_path is already a directory
+                                        from pathlib import Path
+                                        base_path = str(Path(base_path) / parsed_append)
                             
                             logger.info(f"Using linked base path: {base_path}")
                         else:
@@ -650,8 +672,16 @@ class OT_Update_Version(bpy.types.Operator):
             }
             file_extension = format_extensions.get(output_format, 'png')
             
-            # Combine to create full render path with sequence padding and extension
-            full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+            # Construct the final render path based on linked node format
+            if is_linked_multichannel_exr:
+                # For multichannel EXR, base_path is now a directory (after extracting and appending)
+                # We need to add filename+padding+extension
+                full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+                print(f"Shotput: Multichannel EXR linked path: {full_path}")
+            else:
+                # For other formats, combine base_path, filename, padding, and extension
+                full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+                print(f"Shotput: Standard format path: {full_path}")
             
             # Normalize path separators for consistency (use OS-appropriate separators)
             from pathlib import Path
