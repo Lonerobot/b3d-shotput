@@ -302,17 +302,14 @@ class SHOTPUT_OT_InsertToken(bpy.types.Operator):
             self.report({'ERROR'}, f"Failed to insert token: {str(e)}")
             return {'CANCELLED'}
 
-class SHOTPUT_MT_TokenMenu(bpy.types.Menu):
+# Token menu classes for different fields
+class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
     bl_label = "Insert Token"
-    bl_idname = "SHOTPUT_MT_token_menu"
-    
-    property_path: bpy.props.StringProperty(name="Property Path", default="")
+    bl_idname = "SHOTPUT_MT_token_menu_root"
     
     def draw(self, context):
         layout = self.layout
-        
-        # Get the property path from the menu instance
-        prop_path = self.property_path if hasattr(self, 'property_path') else "scene.shotput.root_folder_token"
+        prop_path = "scene.shotput.root_folder_token"
         
         # Core Shotput tokens
         layout.label(text="Core Tokens", icon='FILE_FOLDER')
@@ -373,38 +370,206 @@ class SHOTPUT_MT_TokenMenu(bpy.types.Menu):
             op.token = token
             op.property_path = prop_path
 
-# Menu instances for different fields
-class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
-    bl_label = "Insert Token"
-    bl_idname = "SHOTPUT_MT_token_menu_root"
-    
-    def draw(self, context):
-        SHOTPUT_MT_TokenMenu.property_path = "scene.shotput.root_folder_token"
-        SHOTPUT_MT_TokenMenu.draw(self, context)
-
 class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
     bl_label = "Insert Token"
     bl_idname = "SHOTPUT_MT_token_menu_file"
     
     def draw(self, context):
-        SHOTPUT_MT_TokenMenu.property_path = "scene.shotput.file_name_token"
-        SHOTPUT_MT_TokenMenu.draw(self, context)
+        layout = self.layout
+        prop_path = "scene.shotput.file_name_token"
+        
+        # Core Shotput tokens
+        layout.label(text="Core Tokens", icon='FILE_FOLDER')
+        core_tokens = [
+            ('workdir', 'Working Directory'),
+            ('subpath', 'Subpath'),
+            ('renderlayer', 'Render Layer'),
+            ('passname', 'Pass Name'),
+            ('variant', 'Variant'),
+            ('version', 'Version'),
+        ]
+        for token, label in core_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # AYON-specific tokens
+        layout.label(text="AYON Tokens", icon='NETWORK_DRIVE')
+        ayon_tokens = [
+            ('project', 'Project Path'),
+            ('projectname', 'Project Name'),
+            ('task', 'Task Name'),
+            ('folder', 'Folder Path'),
+            ('user', 'User Name'),
+        ]
+        for token, label in ayon_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Blender-specific tokens
+        layout.label(text="Blender Tokens", icon='BLENDER')
+        blender_tokens = [
+            ('blendfile', 'Blend File Name'),
+            ('scenename', 'Scene Name'),
+            ('frame', 'Frame Number'),
+            ('camera', 'Camera Name'),
+        ]
+        for token, label in blender_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Date/Time tokens
+        layout.label(text="Date/Time Tokens", icon='TIME')
+        datetime_tokens = [
+            ('date', 'Current Date'),
+            ('time', 'Current Time'),
+        ]
+        for token, label in datetime_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
 
 class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
     bl_label = "Insert Token"
     bl_idname = "SHOTPUT_MT_token_menu_node_root"
     
     def draw(self, context):
-        SHOTPUT_MT_TokenMenu.property_path = "node.shotput_data.root_folder_token"
-        SHOTPUT_MT_TokenMenu.draw(self, context)
+        layout = self.layout
+        prop_path = "node.shotput_data.root_folder_token"
+        
+        # Core Shotput tokens
+        layout.label(text="Core Tokens", icon='FILE_FOLDER')
+        core_tokens = [
+            ('workdir', 'Working Directory'),
+            ('subpath', 'Subpath'),
+            ('renderlayer', 'Render Layer'),
+            ('passname', 'Pass Name'),
+            ('variant', 'Variant'),
+            ('version', 'Version'),
+        ]
+        for token, label in core_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # AYON-specific tokens
+        layout.label(text="AYON Tokens", icon='NETWORK_DRIVE')
+        ayon_tokens = [
+            ('project', 'Project Path'),
+            ('projectname', 'Project Name'),
+            ('task', 'Task Name'),
+            ('folder', 'Folder Path'),
+            ('user', 'User Name'),
+        ]
+        for token, label in ayon_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Blender-specific tokens
+        layout.label(text="Blender Tokens", icon='BLENDER')
+        blender_tokens = [
+            ('blendfile', 'Blend File Name'),
+            ('scenename', 'Scene Name'),
+            ('frame', 'Frame Number'),
+            ('camera', 'Camera Name'),
+        ]
+        for token, label in blender_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Date/Time tokens
+        layout.label(text="Date/Time Tokens", icon='TIME')
+        datetime_tokens = [
+            ('date', 'Current Date'),
+            ('time', 'Current Time'),
+        ]
+        for token, label in datetime_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
 
 class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
     bl_label = "Insert Token"
     bl_idname = "SHOTPUT_MT_token_menu_node_file"
     
     def draw(self, context):
-        SHOTPUT_MT_TokenMenu.property_path = "node.shotput_data.file_name_token"
-        SHOTPUT_MT_TokenMenu.draw(self, context)
+        layout = self.layout
+        prop_path = "node.shotput_data.file_name_token"
+        
+        # Core Shotput tokens
+        layout.label(text="Core Tokens", icon='FILE_FOLDER')
+        core_tokens = [
+            ('workdir', 'Working Directory'),
+            ('subpath', 'Subpath'),
+            ('renderlayer', 'Render Layer'),
+            ('passname', 'Pass Name'),
+            ('variant', 'Variant'),
+            ('version', 'Version'),
+        ]
+        for token, label in core_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # AYON-specific tokens
+        layout.label(text="AYON Tokens", icon='NETWORK_DRIVE')
+        ayon_tokens = [
+            ('project', 'Project Path'),
+            ('projectname', 'Project Name'),
+            ('task', 'Task Name'),
+            ('folder', 'Folder Path'),
+            ('user', 'User Name'),
+        ]
+        for token, label in ayon_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Blender-specific tokens
+        layout.label(text="Blender Tokens", icon='BLENDER')
+        blender_tokens = [
+            ('blendfile', 'Blend File Name'),
+            ('scenename', 'Scene Name'),
+            ('frame', 'Frame Number'),
+            ('camera', 'Camera Name'),
+        ]
+        for token, label in blender_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Date/Time tokens
+        layout.label(text="Date/Time Tokens", icon='TIME')
+        datetime_tokens = [
+            ('date', 'Current Date'),
+            ('time', 'Current Time'),
+        ]
+        for token, label in datetime_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
 
 class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
     bl_idname = "shotput.sync_node_passes"
@@ -922,7 +1087,6 @@ classes = (
     SHOTPUT_OT_TogglePathLinking,
     SHOTPUT_OT_SyncNodePasses,
     SHOTPUT_OT_InsertToken,
-    SHOTPUT_MT_TokenMenu,
     SHOTPUT_MT_TokenMenuRoot,
     SHOTPUT_MT_TokenMenuFile,
     SHOTPUT_MT_TokenMenuNodeRoot,
