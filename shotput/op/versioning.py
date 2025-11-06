@@ -817,10 +817,11 @@ class OT_Update_Version(bpy.types.Operator):
             if hasattr(scene, 'shotput'):
                 ui_format = scene.shotput.output_format
                 # Get the correct format for this pass type
+                old_format = node.format.file_format
                 correct_format = get_file_format_for_pass_type(pass_type, ui_format)
                 # Update the node's format to match
                 node.format.file_format = correct_format
-                print(f"Shotput: Updated node {node.name} format from {node.format.file_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+                print(f"Shotput: Updated node {node.name} format from {old_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
             
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
