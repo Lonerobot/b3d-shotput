@@ -589,6 +589,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         
         # Set node color - PINK for composite!
         composite_node.use_custom_color = True
+        prefs = context.preferences.addons[__package_name__].preferences
         composite_node.color = prefs.composite_node_color
         composite_node.width = 300  # Smaller since it's just routing
         
