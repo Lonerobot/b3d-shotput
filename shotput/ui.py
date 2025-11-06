@@ -273,25 +273,34 @@ class SHOTPUT_OT_InsertToken(bpy.types.Operator):
     property_path: bpy.props.StringProperty(name="Property Path")
     
     def execute(self, context):
-        # Get the target property based on property_path
-        if self.property_path.startswith("scene.shotput."):
-            # Scene-level property
-            prop_name = self.property_path.replace("scene.shotput.", "")
-            shotput = context.scene.shotput
-            current_value = getattr(shotput, prop_name, "")
-            new_value = current_value + "{" + self.token + "}"
-            setattr(shotput, prop_name, new_value)
-        elif self.property_path.startswith("node.shotput_data."):
-            # Node-level property
-            prop_name = self.property_path.replace("node.shotput_data.", "")
-            node = context.active_node
-            if node and hasattr(node, 'shotput_data'):
+        try:
+            # Get the target property based on property_path
+            if self.property_path.startswith("scene.shotput."):
+                # Scene-level property
+                prop_name = self.property_path.replace("scene.shotput.", "")
+                shotput = context.scene.shotput
+                current_value = getattr(shotput, prop_name, "")
+                new_value = current_value + "{" + self.token + "}"
+                setattr(shotput, prop_name, new_value)
+            elif self.property_path.startswith("node.shotput_data."):
+                # Node-level property
+                prop_name = self.property_path.replace("node.shotput_data.", "")
+                node = context.active_node
+                if not node or not hasattr(node, 'shotput_data'):
+                    self.report({'ERROR'}, "No Shotput node selected")
+                    return {'CANCELLED'}
                 shotput_data = node.shotput_data
                 current_value = getattr(shotput_data, prop_name, "")
                 new_value = current_value + "{" + self.token + "}"
                 setattr(shotput_data, prop_name, new_value)
-        
-        return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, f"Unknown property path: {self.property_path}")
+                return {'CANCELLED'}
+            
+            return {'FINISHED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to insert token: {str(e)}")
+            return {'CANCELLED'}
 
 class SHOTPUT_MT_TokenMenu(bpy.types.Menu):
     bl_label = "Insert Token"
