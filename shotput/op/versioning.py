@@ -821,11 +821,11 @@ class OT_Update_Version(bpy.types.Operator):
                 correct_format = get_file_format_for_pass_type(pass_type, ui_format)
                 # Update the node's format to match
                 node.format.file_format = correct_format
-                print(f"Shotput: Updated node {node.name} format from {old_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+                logger.debug(f"Updated node {node.name} format from {old_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
             
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
-            print(f"Shotput: Updating node {node.name} with format {node_format}")
+            logger.debug(f"Updating node {node.name} with format {node_format}")
             
             if node_format == 'OPEN_EXR_MULTILAYER':
                 # EXR Multilayer: Update base_path only, slots remain as channel names
@@ -926,11 +926,11 @@ class OT_Update_Version(bpy.types.Operator):
                 correct_format = get_file_format_for_pass_type(pass_type, ui_format)
                 # Update the node's format to match
                 node.format.file_format = correct_format
-                print(f"Shotput: Updated linked node {node.name} format to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+                logger.debug(f"Updated linked node {node.name} format to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
             
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
-            print(f"Shotput: Updating linked node {node.name} filenames only with format {node_format}")
+            logger.debug(f"Updating linked node {node.name} filenames only with format {node_format}")
             
             if node_format == 'OPEN_EXR_MULTILAYER':
                 # EXR Multilayer: Base path should already be set correctly
@@ -1019,6 +1019,8 @@ class OT_Update_Version(bpy.types.Operator):
         Returns:
             String: 'core', 'aov', or 'data'
         """
+        from ..utils.pass_mapping import pass_mapping
+        
         # Check node name for pass type indicators
         node_name_lower = node.name.lower()
         
@@ -1035,10 +1037,9 @@ class OT_Update_Version(bpy.types.Operator):
             node_props = node.shotput_data
             pass_name = getattr(node_props, 'pass_name', '').lower()
             
-            # Check common data pass names
-            data_pass_names = ['z', 'depth', 'mist', 'normal', 'vector', 'position', 
-                             'occlusion', 'crypto', 'data']
-            if any(data_name in pass_name for data_name in data_pass_names):
+            # Check if this pass name is in the data passes list
+            all_data_passes = pass_mapping.get_all_data_passes()
+            if any(data_pass in pass_name for data_pass in all_data_passes):
                 return 'data'
             
             # Check for aov in pass_name
