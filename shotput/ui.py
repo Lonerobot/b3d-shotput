@@ -264,6 +264,139 @@ class SHOTPUT_OT_TogglePathLinking(bpy.types.Operator):
         
         return {'FINISHED'}
 
+class SHOTPUT_OT_InsertToken(bpy.types.Operator):
+    bl_idname = "shotput.insert_token"
+    bl_label = "Insert Token"
+    bl_description = "Insert a token into the path field"
+    
+    token: bpy.props.StringProperty(name="Token")
+    property_path: bpy.props.StringProperty(name="Property Path")
+    
+    def execute(self, context):
+        # Get the target property based on property_path
+        if self.property_path.startswith("scene.shotput."):
+            # Scene-level property
+            prop_name = self.property_path.replace("scene.shotput.", "")
+            shotput = context.scene.shotput
+            current_value = getattr(shotput, prop_name, "")
+            new_value = current_value + "{" + self.token + "}"
+            setattr(shotput, prop_name, new_value)
+        elif self.property_path.startswith("node.shotput_data."):
+            # Node-level property
+            prop_name = self.property_path.replace("node.shotput_data.", "")
+            node = context.active_node
+            if node and hasattr(node, 'shotput_data'):
+                shotput_data = node.shotput_data
+                current_value = getattr(shotput_data, prop_name, "")
+                new_value = current_value + "{" + self.token + "}"
+                setattr(shotput_data, prop_name, new_value)
+        
+        return {'FINISHED'}
+
+class SHOTPUT_MT_TokenMenu(bpy.types.Menu):
+    bl_label = "Insert Token"
+    bl_idname = "SHOTPUT_MT_token_menu"
+    
+    property_path: bpy.props.StringProperty(name="Property Path", default="")
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        # Get the property path from the menu instance
+        prop_path = self.property_path if hasattr(self, 'property_path') else "scene.shotput.root_folder_token"
+        
+        # Core Shotput tokens
+        layout.label(text="Core Tokens", icon='FILE_FOLDER')
+        core_tokens = [
+            ('workdir', 'Working Directory'),
+            ('subpath', 'Subpath'),
+            ('renderlayer', 'Render Layer'),
+            ('passname', 'Pass Name'),
+            ('variant', 'Variant'),
+            ('version', 'Version'),
+        ]
+        for token, label in core_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # AYON-specific tokens
+        layout.label(text="AYON Tokens", icon='NETWORK_DRIVE')
+        ayon_tokens = [
+            ('project', 'Project Path'),
+            ('projectname', 'Project Name'),
+            ('task', 'Task Name'),
+            ('folder', 'Folder Path'),
+            ('user', 'User Name'),
+        ]
+        for token, label in ayon_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Blender-specific tokens
+        layout.label(text="Blender Tokens", icon='BLENDER')
+        blender_tokens = [
+            ('blendfile', 'Blend File Name'),
+            ('scenename', 'Scene Name'),
+            ('frame', 'Frame Number'),
+            ('camera', 'Camera Name'),
+        ]
+        for token, label in blender_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+        
+        layout.separator()
+        
+        # Date/Time tokens
+        layout.label(text="Date/Time Tokens", icon='TIME')
+        datetime_tokens = [
+            ('date', 'Current Date'),
+            ('time', 'Current Time'),
+        ]
+        for token, label in datetime_tokens:
+            op = layout.operator("shotput.insert_token", text=label, icon='DOT')
+            op.token = token
+            op.property_path = prop_path
+
+# Menu instances for different fields
+class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
+    bl_label = "Insert Token"
+    bl_idname = "SHOTPUT_MT_token_menu_root"
+    
+    def draw(self, context):
+        SHOTPUT_MT_TokenMenu.property_path = "scene.shotput.root_folder_token"
+        SHOTPUT_MT_TokenMenu.draw(self, context)
+
+class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
+    bl_label = "Insert Token"
+    bl_idname = "SHOTPUT_MT_token_menu_file"
+    
+    def draw(self, context):
+        SHOTPUT_MT_TokenMenu.property_path = "scene.shotput.file_name_token"
+        SHOTPUT_MT_TokenMenu.draw(self, context)
+
+class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
+    bl_label = "Insert Token"
+    bl_idname = "SHOTPUT_MT_token_menu_node_root"
+    
+    def draw(self, context):
+        SHOTPUT_MT_TokenMenu.property_path = "node.shotput_data.root_folder_token"
+        SHOTPUT_MT_TokenMenu.draw(self, context)
+
+class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
+    bl_label = "Insert Token"
+    bl_idname = "SHOTPUT_MT_token_menu_node_file"
+    
+    def draw(self, context):
+        SHOTPUT_MT_TokenMenu.property_path = "node.shotput_data.file_name_token"
+        SHOTPUT_MT_TokenMenu.draw(self, context)
+
 class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
     bl_idname = "shotput.sync_node_passes"
     bl_label = "Sync Node Passes"
@@ -502,14 +635,16 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         box = layout.box()
         box.label(text="Path Tokens", icon='FILE_FOLDER')
         
-        # Root folder with preview paths button
-        row = box.row()
+        # Root folder with token menu and preview paths button
+        row = box.row(align=True)
         row.prop(shotput, "root_folder_token", text="Root Folder")
+        row.menu("SHOTPUT_MT_token_menu_root", icon='ADD', text="")
         row.operator("shotput.preview_paths", icon='FILE_FOLDER', text="")
         
-        # File name with token help button  
-        row = box.row()
+        # File name with token menu and token help button  
+        row = box.row(align=True)
         row.prop(shotput, "file_name_token", text="File Name")
+        row.menu("SHOTPUT_MT_token_menu_file", icon='ADD', text="")
         row.operator("shotput.token_help", icon='QUESTION', text="")
         
         # Output Format in compact 2x2 grid
@@ -701,8 +836,10 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                 row.label(text="No valid linked node selected", icon='ERROR')
                 row.enabled = False
             
-            # Append path field with consistent layout
-            box.prop(shotput_data, "root_folder_token", text="Append Path")
+            # Append path field with consistent layout and token menu
+            row = box.row(align=True)
+            row.prop(shotput_data, "root_folder_token", text="Append Path")
+            row.menu("SHOTPUT_MT_token_menu_node_root", icon='ADD', text="")
             
             # Show backup info if available
             # if shotput_data.root_folder_token_backup:
@@ -710,11 +847,15 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             #     row.label(text="Original path backed up", icon='INFO')
             #     row.enabled = False
         else:
-            # Normal path configuration
-            box.prop(shotput_data, "root_folder_token", text="Root Folder")
+            # Normal path configuration with token menu
+            row = box.row(align=True)
+            row.prop(shotput_data, "root_folder_token", text="Root Folder")
+            row.menu("SHOTPUT_MT_token_menu_node_root", icon='ADD', text="")
         
-        # File name token is always shown
-        box.prop(shotput_data, "file_name_token", text="File Name")
+        # File name token is always shown with token menu
+        row = box.row(align=True)
+        row.prop(shotput_data, "file_name_token", text="File Name")
+        row.menu("SHOTPUT_MT_token_menu_node_file", icon='ADD', text="")
         
         # Output Folder Actions and Lazy Hook-up in a single row
         row = box.row()
@@ -771,6 +912,12 @@ classes = (
     SHOTPUT_OT_StoredPassMoveDown,
     SHOTPUT_OT_TogglePathLinking,
     SHOTPUT_OT_SyncNodePasses,
+    SHOTPUT_OT_InsertToken,
+    SHOTPUT_MT_TokenMenu,
+    SHOTPUT_MT_TokenMenuRoot,
+    SHOTPUT_MT_TokenMenuFile,
+    SHOTPUT_MT_TokenMenuNodeRoot,
+    SHOTPUT_MT_TokenMenuNodeFile,
 )
 
 def register():
