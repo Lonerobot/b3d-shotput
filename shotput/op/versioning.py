@@ -527,7 +527,6 @@ class OT_Update_Version(bpy.types.Operator):
     def _update_scene_render_path(self, context, composite_node):
         """Update scene render filepath using composite node properties"""
         try:
-            from pathlib import Path
             from ..utils.defaults import get_sequence_padding
             
             node_props = composite_node.shotput_data
