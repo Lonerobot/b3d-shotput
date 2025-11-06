@@ -799,6 +799,31 @@ class OT_Update_Version(bpy.types.Operator):
             logger.error(f"Error calculating next version: {e}")
             return VersionUtils.versionDefault
     
+    def _update_node_format(self, node, context):
+        """
+        Update the node's file format to match the current UI setting.
+        
+        Args:
+            node: The File Output node to update
+            context: The Blender context
+            
+        Returns:
+            The updated file format
+        """
+        pass_type = self._get_pass_type_from_node(node)
+        scene = context.scene
+        if hasattr(scene, 'shotput'):
+            ui_format = scene.shotput.output_format
+            # Get the correct format for this pass type
+            old_format = node.format.file_format
+            correct_format = get_file_format_for_pass_type(pass_type, ui_format)
+            # Update the node's format to match
+            if old_format != correct_format:
+                node.format.file_format = correct_format
+                logger.debug(f"Updated node {node.name} format from {old_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+            return correct_format
+        return node.format.file_format
+    
     def _update_file_slots(self, node, node_props, token_parser, new_version, context):
         """Update file slot paths with new version"""
         try:
@@ -811,17 +836,8 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
-            # Determine pass type and update node format to match UI setting
-            pass_type = self._get_pass_type_from_node(node)
-            scene = context.scene
-            if hasattr(scene, 'shotput'):
-                ui_format = scene.shotput.output_format
-                # Get the correct format for this pass type
-                old_format = node.format.file_format
-                correct_format = get_file_format_for_pass_type(pass_type, ui_format)
-                # Update the node's format to match
-                node.format.file_format = correct_format
-                logger.debug(f"Updated node {node.name} format from {old_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+            # Update node format to match UI setting
+            self._update_node_format(node, context)
             
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
@@ -849,7 +865,7 @@ class OT_Update_Version(bpy.types.Operator):
                     
                     # Update base path with filename and sequence padding
                     node.base_path = f"{new_base_path}/{new_filename}.{sequence_padding}"
-                    print(f"Shotput: Updated EXR multilayer base_path to: {node.base_path}")
+                    logger.debug(f"Updated EXR multilayer base_path to: {node.base_path}")
                 
                 # For EXR multilayer, file slots should remain as channel names only
                 # Don't modify slot paths as they contain channel names, not file paths
@@ -917,16 +933,8 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
-            # Determine pass type and update node format to match UI setting
-            pass_type = self._get_pass_type_from_node(node)
-            scene = context.scene
-            if hasattr(scene, 'shotput'):
-                ui_format = scene.shotput.output_format
-                # Get the correct format for this pass type
-                correct_format = get_file_format_for_pass_type(pass_type, ui_format)
-                # Update the node's format to match
-                node.format.file_format = correct_format
-                logger.debug(f"Updated linked node {node.name} format to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+            # Update node format to match UI setting
+            self._update_node_format(node, context)
             
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
@@ -972,7 +980,7 @@ class OT_Update_Version(bpy.types.Operator):
                     
                     # Create filename-only path with sequence padding and extension (no base path)
                     slot.path = f"{new_filename}.{sequence_padding}.{file_extension}"
-                    print(f"Shotput: Updated linked node slot {i} to filename: {slot.path}")
+                    logger.debug(f"Updated linked node slot {i} to filename: {slot.path}")
                 
         except Exception as e:
             logger.error(f"Error updating file slot filenames: {e}")
