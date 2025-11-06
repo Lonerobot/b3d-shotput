@@ -4,6 +4,7 @@ from pathlib import Path
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
+from ..utils.defaults import get_file_format_for_pass_type
 
 logger = LoggerFactory.logger_obj()
 
@@ -810,6 +811,17 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
+            # Determine pass type and update node format to match UI setting
+            pass_type = self._get_pass_type_from_node(node)
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                ui_format = scene.shotput.output_format
+                # Get the correct format for this pass type
+                correct_format = get_file_format_for_pass_type(pass_type, ui_format)
+                # Update the node's format to match
+                node.format.file_format = correct_format
+                print(f"Shotput: Updated node {node.name} format from {node.format.file_format} to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+            
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
             print(f"Shotput: Updating node {node.name} with format {node_format}")
@@ -904,6 +916,17 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
+            # Determine pass type and update node format to match UI setting
+            pass_type = self._get_pass_type_from_node(node)
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                ui_format = scene.shotput.output_format
+                # Get the correct format for this pass type
+                correct_format = get_file_format_for_pass_type(pass_type, ui_format)
+                # Update the node's format to match
+                node.format.file_format = correct_format
+                print(f"Shotput: Updated linked node {node.name} format to {correct_format} (pass_type={pass_type}, ui_format={ui_format})")
+            
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
             print(f"Shotput: Updating linked node {node.name} filenames only with format {node_format}")
@@ -984,6 +1007,45 @@ class OT_Update_Version(bpy.types.Operator):
         
         logger.debug(f"Reconstructed path: {token_string} -> {resolved_path}")
         return resolved_path
+    
+    def _get_pass_type_from_node(self, node):
+        """
+        Determine the pass type (core, aov, or data) from a node.
+        
+        Args:
+            node: The File Output node to analyze
+            
+        Returns:
+            String: 'core', 'aov', or 'data'
+        """
+        # Check node name for pass type indicators
+        node_name_lower = node.name.lower()
+        
+        # Data nodes are typically named "Shotput_Data" or contain "data"
+        if 'data' in node_name_lower:
+            return 'data'
+        
+        # AOV nodes are typically named "Shotput_AOV" or contain "aov"
+        if 'aov' in node_name_lower:
+            return 'aov'
+        
+        # Check if node has shotput_data property with pass_name
+        if hasattr(node, 'shotput_data'):
+            node_props = node.shotput_data
+            pass_name = getattr(node_props, 'pass_name', '').lower()
+            
+            # Check common data pass names
+            data_pass_names = ['z', 'depth', 'mist', 'normal', 'vector', 'position', 
+                             'occlusion', 'crypto', 'data']
+            if any(data_name in pass_name for data_name in data_pass_names):
+                return 'data'
+            
+            # Check for aov in pass_name
+            if 'aov' in pass_name:
+                return 'aov'
+        
+        # Default to core for all other cases
+        return 'core'
     
     def _reconstruct_filename_with_version(self, token_string, new_version, token_parser):
         """
