@@ -6,9 +6,6 @@ from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
-logger = LoggerFactory.logger_obj()
-from ..utils.lazy_hookup import auto_connect_node
-from ..utils.color_utils import store_original_node_color
 
 logger = LoggerFactory.logger_obj()
 
