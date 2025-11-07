@@ -1,11 +1,9 @@
 import bpy
 
+from .. import __package_name__
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
-from ..utils.lazy_hookup import auto_connect_node
-from ..utils.color_utils import store_original_node_color
-logger = LoggerFactory.logger_obj()
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
 
@@ -114,12 +112,13 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         
         # Set node color - different colors for different modes
         file_output.use_custom_color = True
+        prefs = context.preferences.addons[__package_name__].preferences
         if shotput_props.use_render_layer_channels:
             # Purple color matching render layer node for "Use Render Layer Channels" mode
-            file_output.color = (0.510, 0.204, 0.294)  # Purple like render layer
+            file_output.color = prefs.core_render_layer_node_color
         else:
             # Blue color for manual core passes mode
-            file_output.color = (0.25, 0.45, 0.7)  # Darker, more muted blue
+            file_output.color = prefs.core_node_color
         file_output.width = 500  # Set a reasonable width for visibility
         
         # Store the original color for potential path linking visual feedback
@@ -590,7 +589,8 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         
         # Set node color - PINK for composite!
         composite_node.use_custom_color = True
-        composite_node.color = (0.8, 0.4, 0.8)  # Pink color
+        prefs = context.preferences.addons[__package_name__].preferences
+        composite_node.color = prefs.composite_node_color
         composite_node.width = 300  # Smaller since it's just routing
         
         # Store the original color for potential path linking visual feedback
@@ -756,7 +756,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
             print("Shotput: Creating standalone composite (no linking)")
         
         # Create the composite node
-        composite_node = self._create_standalone_composite_node(tree, source_props, linked_node)
+        composite_node = self._create_standalone_composite_node(context, tree, source_props, linked_node)
         
         if not composite_node:
             self.report({'ERROR'}, "Failed to create composite node")
@@ -776,7 +776,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         
         return {'FINISHED'}
     
-    def _create_standalone_composite_node(self, tree, source_props, linked_node=None):
+    def _create_standalone_composite_node(self, context, tree, source_props, linked_node=None):
         """Create a Shotput Composite node with properties from source"""
         
         # Get render layer and variant from source
@@ -793,7 +793,8 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         
         # Set node color - PINK for composite!
         composite_node.use_custom_color = True
-        composite_node.color = (0.8, 0.4, 0.8)  # Pink color
+        prefs = context.preferences.addons[__package_name__].preferences
+        composite_node.color = prefs.composite_node_color
         composite_node.width = 220  # Smaller since it's just routing
         
         # Store original color for visual feedback system

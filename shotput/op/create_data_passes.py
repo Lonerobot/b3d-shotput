@@ -1,5 +1,6 @@
 import bpy
 
+from .. import __package_name__
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, apply_data_format_settings, get_sequence_padding
@@ -159,7 +160,8 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         
         # Set node color - darker red for data passes
         file_output.use_custom_color = True
-        file_output.color = (0.6, 0.25, 0.25)  # Darker, more muted red
+        prefs = context.preferences.addons[__package_name__].preferences
+        file_output.color = prefs.data_node_color
         file_output.width = 500
         
         # Store the original color for potential path linking visual feedback
