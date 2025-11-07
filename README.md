@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
 ## Overview
-Shotput is a comprehensive Blender addon for managing file output nodes with advanced token-based path resolution, smart versioning, and intelligent file format handling. The system is designed for professional VFX and animation pipelines where automated, consistent file management is critical.
+Shotput is a Blender addon for managing file output nodes with token-based path resolution, smart versioning, and intelligent file format handling. The system is designed for VFX and animation pipelines where automated, consistent file management is critical.
 
 ## Core Features
 
