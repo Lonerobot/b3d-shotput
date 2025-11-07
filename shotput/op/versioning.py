@@ -1155,7 +1155,6 @@ class OT_Token_Help(bpy.types.Operator):
             blender_tokens = [
                 ('blendfile', 'Current .blend filename'),
                 ('scenename', 'Active scene name'),
-                ('frame', 'Current frame number'),
                 ('camera', 'Active camera name'),
             ]
             
