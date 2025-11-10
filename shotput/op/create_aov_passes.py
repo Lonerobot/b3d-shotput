@@ -21,7 +21,7 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
                 context.space_data.type == 'NODE_EDITOR' and
                 context.space_data.tree_type == 'CompositorNodeTree'):
             return False
-    def poll(cls, context):
+        
         shotput = context.scene.shotput
         
         # Check required fields
