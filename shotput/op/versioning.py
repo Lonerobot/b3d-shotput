@@ -603,6 +603,33 @@ class OT_Update_Version(bpy.types.Operator):
                             # Start with the linked node's base path
                             base_path = linked_base_path
                             
+                            # Special handling for multilayer EXR nodes
+                            # These have sequence padding (####) in the base_path which needs to be extracted
+                            from ..utils.defaults import get_sequence_padding
+                            sequence_padding = get_sequence_padding()
+                            
+                            # Check if the linked node is multilayer EXR format
+                            is_linked_multilayer_exr = False
+                            if hasattr(linked_node, 'format') and linked_node.format.file_format == 'OPEN_EXR_MULTILAYER':
+                                is_linked_multilayer_exr = True
+                                print(f"Shotput: Linked node is multilayer EXR format")
+                            
+                            # If linked node is multilayer EXR, its base_path includes sequence padding and extension
+                            # Example: "C:/path/to/file.####" or "C:/path/to/file.####.exr"
+                            # We need to extract just the directory path
+                            if is_linked_multilayer_exr and sequence_padding in base_path:
+                                from pathlib import Path
+                                # The base path for multilayer EXR is like: "path/filename.####"
+                                # We need to extract the directory only
+                                path_obj = Path(base_path)
+                                
+                                # Check if the path has the sequence padding in the filename
+                                if sequence_padding in path_obj.name:
+                                    # Extract directory - the parent of the path with ####
+                                    base_directory = str(path_obj.parent)
+                                    print(f"Shotput: Extracted base directory from multilayer EXR path: '{base_path}' -> '{base_directory}'")
+                                    base_path = base_directory
+                            
                             # If there's an append path in root_folder_token, add it
                             append_path = getattr(node_props, 'root_folder_token', '')
                             if append_path and append_path.strip():
@@ -632,27 +659,78 @@ class OT_Update_Version(bpy.types.Operator):
             # Parse the file name token (always use filename-only logic for scene render path)
             filename = token_parser.parse_filename_only(node_props.file_name_token, passname=pass_name)
             
-            # Get sequence padding from preferences
-            sequence_padding = get_sequence_padding()
-            
-            # Get the current UI output format for file extension
+            # Get the actual Blender scene render format (not Shotput UI format)
             scene = context.scene
-            if hasattr(scene, 'shotput'):
-                output_format = scene.shotput.output_format
-            else:
-                output_format = 'PNG'  # Default fallback
+            render_format = scene.render.image_settings.file_format
             
-            # Map format to file extension
-            format_extensions = {
-                'PNG': 'png',
-                'JPEG': 'jpg', 
-                'OPEN_EXR': 'exr',
-                'OPEN_EXR_MULTILAYER': 'exr'
+            print(f"Shotput: Detected scene render format: {render_format}")
+            
+            # Determine if this is a movie format (no sequence padding) or image sequence (needs padding)
+            movie_formats = {
+                'FFMPEG',      # Includes MP4, MOV, AVI, etc.
+                'AVI_JPEG',
+                'AVI_RAW',
             }
-            file_extension = format_extensions.get(output_format, 'png')
             
-            # Combine to create full render path with sequence padding and extension
-            full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+            is_movie_format = render_format in movie_formats
+            print(f"Shotput: Is movie format: {is_movie_format}")
+            
+            # Get appropriate file extension based on Blender's format
+            if render_format == 'FFMPEG':
+                # For FFMPEG, check the container format
+                ffmpeg_format = scene.render.ffmpeg.format
+                print(f"Shotput: FFMPEG container format: {ffmpeg_format}")
+                ffmpeg_extensions = {
+                    'MPEG4': 'mp4',
+                    'QUICKTIME': 'mov',
+                    'AVI': 'avi',
+                    'MKV': 'mkv',
+                    'WEBM': 'webm',
+                    'OGG': 'ogv',
+                }
+                file_extension = ffmpeg_extensions.get(ffmpeg_format, 'mp4')
+                print(f"Shotput: Using extension: .{file_extension}")
+            elif render_format == 'AVI_JPEG':
+                file_extension = 'avi'
+            elif render_format == 'AVI_RAW':
+                file_extension = 'avi'
+            elif render_format == 'PNG':
+                file_extension = 'png'
+            elif render_format in ['JPEG', 'JPEG2000']:
+                file_extension = 'jpg'
+            elif render_format in ['OPEN_EXR', 'OPEN_EXR_MULTILAYER']:
+                file_extension = 'exr'
+            elif render_format == 'TIFF':
+                file_extension = 'tif'
+            elif render_format == 'TARGA':
+                file_extension = 'tga'
+            elif render_format == 'TARGA_RAW':
+                file_extension = 'tga'
+            elif render_format == 'BMP':
+                file_extension = 'bmp'
+            elif render_format == 'HDR':
+                file_extension = 'hdr'
+            elif render_format == 'IRIS':
+                file_extension = 'sgi'
+            elif render_format == 'DPX':
+                file_extension = 'dpx'
+            elif render_format == 'CINEON':
+                file_extension = 'cin'
+            else:
+                # Fallback to PNG for unknown formats
+                file_extension = 'png'
+                logger.warning(f"Unknown render format '{render_format}', defaulting to .png extension")
+            
+            # Build the full path based on format type
+            if is_movie_format:
+                # Movie formats: no sequence padding
+                full_path = f"{base_path}/{filename}.{file_extension}"
+                logger.info(f"Using movie format '{render_format}' - no sequence padding")
+            else:
+                # Image sequence formats: include sequence padding
+                sequence_padding = get_sequence_padding()
+                full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+                logger.info(f"Using image sequence format '{render_format}' - with padding {sequence_padding}")
             
             # Normalize path separators for consistency (use OS-appropriate separators)
             from pathlib import Path
@@ -872,21 +950,26 @@ class OT_Update_Version(bpy.types.Operator):
                 
             else:
                 # Single file formats (PNG/JPEG/EXR single): Update individual slot paths
-                # Get the current UI output format for file extension
-                scene = context.scene
-                if hasattr(scene, 'shotput'):
-                    output_format = scene.shotput.output_format
-                else:
-                    output_format = 'PNG'  # Default fallback
-                
-                # Map format to file extension
+                # Use the node's actual format (not the scene default) to determine file extension
+                # Map Blender's node format to file extension
                 format_extensions = {
                     'PNG': 'png',
                     'JPEG': 'jpg', 
+                    'JPEG2000': 'jp2',
                     'OPEN_EXR': 'exr',
-                    'OPEN_EXR_MULTILAYER': 'exr'
+                    'OPEN_EXR_MULTILAYER': 'exr',
+                    'TIFF': 'tif',
+                    'TARGA': 'tga',
+                    'TARGA_RAW': 'tga',
+                    'BMP': 'bmp',
+                    'IRIS': 'rgb',
+                    'RADHDR': 'hdr',
+                    'CINEON': 'cin',
+                    'DPX': 'dpx',
+                    'DDS': 'dds',
+                    'WEBP': 'webp'
                 }
-                file_extension = format_extensions.get(output_format, 'png')
+                file_extension = format_extensions.get(node_format, 'png')
                 
                 # Update base path for single file formats
                 root_token = node_props.root_folder_token
@@ -947,21 +1030,26 @@ class OT_Update_Version(bpy.types.Operator):
                 
             else:
                 # Single file formats (PNG/JPEG/EXR single): Update individual slot filenames only
-                # Get the current UI output format for file extension
-                scene = context.scene
-                if hasattr(scene, 'shotput'):
-                    output_format = scene.shotput.output_format
-                else:
-                    output_format = 'PNG'  # Default fallback
-                
-                # Map format to file extension
+                # Use the node's actual format (not the scene default) to determine file extension
+                # Map Blender's node format to file extension
                 format_extensions = {
                     'PNG': 'png',
                     'JPEG': 'jpg', 
+                    'JPEG2000': 'jp2',
                     'OPEN_EXR': 'exr',
-                    'OPEN_EXR_MULTILAYER': 'exr'
+                    'OPEN_EXR_MULTILAYER': 'exr',
+                    'TIFF': 'tif',
+                    'TARGA': 'tga',
+                    'TARGA_RAW': 'tga',
+                    'BMP': 'bmp',
+                    'IRIS': 'rgb',
+                    'RADHDR': 'hdr',
+                    'CINEON': 'cin',
+                    'DPX': 'dpx',
+                    'DDS': 'dds',
+                    'WEBP': 'webp'
                 }
-                file_extension = format_extensions.get(output_format, 'png')
+                file_extension = format_extensions.get(node_format, 'png')
                 
                 # Update each file slot path with just filename (no full path)
                 for i, slot in enumerate(node.file_slots):

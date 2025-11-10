@@ -4,6 +4,26 @@ from . import __package_name__
 from .utils.log import LoggerFactory
 logger = LoggerFactory.logger_obj()
 
+class SHOTPUT_OT_restore_node_colors(bpy.types.Operator):
+    """Restore node colors to default values"""
+    bl_idname = "shotput.restore_node_colors"
+    bl_label = "Restore Default Colors"
+    bl_description = "Reset all node colors to their default values"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        prefs = context.preferences.addons[__package_name__].preferences
+        
+        # Restore default colors
+        prefs.core_node_color = (0.25, 0.45, 0.7)  # Blue
+        prefs.core_render_layer_node_color = (0.510, 0.204, 0.294)  # Purple
+        prefs.aov_node_color = (0.7, 0.4, 0.2)  # Orange
+        prefs.data_node_color = (0.6, 0.25, 0.25)  # Red
+        prefs.composite_node_color = (0.8, 0.4, 0.8)  # Pink
+        
+        self.report({'INFO'}, "Node colors restored to defaults")
+        return {'FINISHED'}
+
 class ShotputPreferences(bpy.types.AddonPreferences):
     """Preferences class: Preferences for the Shotput add-on"""
     bl_idname = __package_name__
@@ -102,28 +122,56 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         box = layout.box()
         box.label(text="General Settings", icon="PREFERENCES")
         col = box.column(align=True)
-
-        col.prop(self, "auto_create_version_folders")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Auto-Create Version Folders:")
+        split.prop(self, "auto_create_version_folders", text="")
         
         # Core Pass Settings
         box = layout.box()
         box.label(text="Pass Settings", icon="RENDER_RESULT")
         col = box.column(align=True)
-
-        col.prop(self, "subpath_token_value")
-        col.prop(self, "sequence_padding")   
-        col.prop(self, "data_node_format_override")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Subpath Token Value:")
+        split.prop(self, "subpath_token_value", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Sequence Padding:")
+        split.prop(self, "sequence_padding", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Data Node Format Override:")
+        split.prop(self, "data_node_format_override", text="")
         
         # Node Color Settings
         box = layout.box()
-        box.label(text="Node Colors", icon="COLOR")
+        row = box.row()
+        row.label(text="Node Colors", icon="COLOR")
+        row.operator("shotput.restore_node_colors", text="Restore Defaults", icon="FILE_REFRESH")
+        
         col = box.column(align=True)
         
-        col.prop(self, "core_node_color")
-        col.prop(self, "core_render_layer_node_color")
-        col.prop(self, "aov_node_color")
-        col.prop(self, "data_node_color")
-        col.prop(self, "composite_node_color")
+        # Use split layout for compact color swatches
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Core Node Color:")
+        split.prop(self, "core_node_color", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Core Render Layer Node Color:")
+        split.prop(self, "core_render_layer_node_color", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="AOV Node Color:")
+        split.prop(self, "aov_node_color", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Data Node Color:")
+        split.prop(self, "data_node_color", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Composite Node Color:")
+        split.prop(self, "composite_node_color", text="")
 
 
 def get(context: bpy.types.Context) -> ShotputPreferences:
@@ -132,6 +180,7 @@ def get(context: bpy.types.Context) -> ShotputPreferences:
     return prefs
 
 classes = (
+    SHOTPUT_OT_restore_node_colors,
     ShotputPreferences,
 )
 
