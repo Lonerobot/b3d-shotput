@@ -103,8 +103,8 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
         default="v001",
         description="Current version number for this node"
     )
-    render_layer: bpy.props.StringProperty(
-        name="Render Layer"
+    output_layer: bpy.props.StringProperty(
+        name="Output Layer"
     )
     pass_name: bpy.props.StringProperty(
         name="Pass Name"
@@ -176,9 +176,9 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
 
 # Scene-level property group for Shotput settings
 class ShotputSceneProperties(bpy.types.PropertyGroup):
-    render_layer: bpy.props.StringProperty(
-        name="Render Layer",
-        default="RenderLayer"
+    output_layer: bpy.props.StringProperty(
+        name="Output Layer",
+        default="ViewLayer"
     )
     pass_name: bpy.props.StringProperty(
         name="Pass Name"
@@ -189,11 +189,11 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
     )
     root_folder_token: bpy.props.StringProperty(
         name="Root Folder Token",
-        default="{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}"
+        default="{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}"
     )
     file_name_token: bpy.props.StringProperty(
         name="File Name Token",
-        default="{renderlayer}_{passname}_{variant}"
+        default="{outputlayer}_{passname}_{variant}"
     )
     output_format: bpy.props.EnumProperty(
         name="Output Format",

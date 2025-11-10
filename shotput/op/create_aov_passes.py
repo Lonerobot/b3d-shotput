@@ -26,7 +26,7 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         
         # Check required fields
         required_fields = [
-            shotput.render_layer.strip(),
+            shotput.output_layer.strip(),
             shotput.variant.strip(),
             shotput.root_folder_token.strip(),
             shotput.file_name_token.strip()
@@ -69,8 +69,8 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Determine area name - use aov_override if present, otherwise default to "aov"
         area_name = shotput_props.aov_override.strip() if shotput_props.aov_override.strip() else "aov"
         
-        # Create node label: render_layer.area.variant
-        node_label = f"{shotput_props.render_layer}.{area_name}.{shotput_props.variant}"
+        # Create node label: output_layer.area.variant
+        node_label = f"{shotput_props.output_layer}.{area_name}.{shotput_props.variant}"
         
         # Create File Output node
         file_output = tree.nodes.new(type='CompositorNodeOutputFile')
@@ -148,7 +148,7 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         node_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
         # Copy scene properties to node
-        node_props.render_layer = shotput_props.render_layer
+        node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token

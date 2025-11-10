@@ -17,25 +17,13 @@ class TokenParser:
     """
     Token parsing system for Shotput file output paths.
     
-    Converts tokens like {workdir}, {renderlayer}, {passname}, etc. into actual file paths
+    Converts tokens like {workdir}, {outputlayer}, {passname}, etc. into actual file paths
     for File Output nodes.
     
     Usage:
-        parser = TokenParser(node_proper            # Blender-specific tokens
-            'blendfile': 'Blend file name (without extension)',
-            'scenename': 'Active scene name',
-            'frame': 'Current frame number (4 digits)',
-            'camera': 'Active camera name',
-            
-            # Date/time tokens
-            'date': 'Current date (DD-MM-YY)',
-            'time': 'Current time (HH-MM-SS)',
-            
-            # Backward compatibility (deprecated)
-            'blendname': 'Blend file name (deprecated - use blendfile)',
-            'blend_name': 'Blend file name (deprecated - use blendfile)',
-            'scene_name': 'Active scene name (deprecated - use scenename)',  root_path = parser.parse_token("{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}")
-        filename = parser.parse_token("{renderlayer}_{passname}_{variant}")
+        parser = TokenParser(node_properties)
+        root_path = parser.parse_token("{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}")
+        filename = parser.parse_token("{outputlayer}_{passname}_{variant}")
     """
     
     def __init__(self, node_properties=None):
@@ -58,7 +46,7 @@ class TokenParser:
             # Core Shotput tokens
             'workdir': self._resolve_workdir,
             'subpath': self._resolve_subpath,
-            'renderlayer': self._resolve_renderlayer,
+            'outputlayer': self._resolve_outputlayer,
             'passname': self._resolve_passname,
             'variant': self._resolve_variant,
             'version': self._resolve_version,
@@ -80,6 +68,7 @@ class TokenParser:
             'blendname': self._resolve_blendname,  # Use blendfile instead
             'blend_name': self._resolve_blendname,  # Use blendfile instead
             'scene_name': self._resolve_scenename,      # Use scenename instead
+            'renderlayer': self._resolve_outputlayer,    # Use outputlayer instead (deprecated)
             
             # Date/time tokens
             'date': self._resolve_date,
@@ -92,7 +81,7 @@ class TokenParser:
         Handles path linking - if node is path-linked, uses linked node's path as base.
         
         Args:
-            token_string: String containing tokens like "{workdir}/{renderlayer}"
+            token_string: String containing tokens like "{workdir}/{outputlayer}"
             **kwargs: Additional token values to override defaults
             
         Returns:
@@ -118,7 +107,7 @@ class TokenParser:
         file slot patterns that should only contain filenames.
         
         Args:
-            token_string: String containing filename tokens like "{renderlayer}_{passname}_{variant}"
+            token_string: String containing filename tokens like "{outputlayer}_{passname}_{variant}"
             **kwargs: Additional token values to override defaults
             
         Returns:
@@ -276,7 +265,7 @@ class TokenParser:
         Parse a token string normally (non-linked mode).
         
         Args:
-            token_string: String containing tokens like "{workdir}/{renderlayer}"
+            token_string: String containing tokens like "{workdir}/{outputlayer}"
             **kwargs: Additional token values to override defaults
             
         Returns:
@@ -369,16 +358,21 @@ class TokenParser:
         """Resolve subpath token from addon preferences"""
         return get_subpath_token_value()
     
-    def _resolve_renderlayer(self) -> str:
-        """Resolve render layer token from node properties"""
+    def _resolve_outputlayer(self) -> str:
+        """Resolve output layer token from node properties (was render_layer)"""
+        # Try new property name first
+        if self.node_properties and hasattr(self.node_properties, 'output_layer'):
+            return getattr(self.node_properties, 'output_layer', 'ViewLayer')
+        
+        # Backward compatibility: check old render_layer property
         if self.node_properties and hasattr(self.node_properties, 'render_layer'):
-            return getattr(self.node_properties, 'render_layer', 'RenderLayer')
+            return getattr(self.node_properties, 'render_layer', 'ViewLayer')
         
         # Fallback to active view layer
         if hasattr(bpy.context, 'view_layer') and bpy.context.view_layer:
             return bpy.context.view_layer.name
         
-        return 'RenderLayer'
+        return 'ViewLayer'
     
     def _resolve_passname(self) -> str:
         """Resolve pass name token from node properties"""
@@ -404,7 +398,7 @@ class TokenParser:
         try:
             # Get the base output directory to check for existing versions
             base_dir = Path(self._resolve_workdir()) / self._resolve_subpath()
-            folder_name = f"{self._resolve_renderlayer()}_{self._resolve_passname()}_{self._resolve_variant()}"
+            folder_name = f"{self._resolve_outputlayer()}_{self._resolve_passname()}_{self._resolve_variant()}"
             version_dir = base_dir / folder_name
             
             # Get latest version WITHOUT creating any directories
@@ -571,7 +565,7 @@ class TokenParser:
             # Core Shotput tokens
             'workdir': 'Working directory (AYON_WORKDIR or blend file location)',
             'subpath': 'Render output subdirectory',
-            'renderlayer': 'Render layer name',
+            'outputlayer': 'Output layer name',
             'passname': 'Pass name (Beauty, Core, AOV, Data)',
             'variant': 'Variant name',
             'version': 'Version string (v001, v002, etc.)',
@@ -597,6 +591,7 @@ class TokenParser:
             'blendname': 'Blend file name (deprecated - use blendfile)',
             'blend_name': 'Blend file name (deprecated - use blendfile)',
             'scene_name': 'Active scene name (deprecated - use scenename)',
+            'renderlayer': 'Output layer name (deprecated - use outputlayer)',
         }
     
     def validate_token_string(self, token_string: str) -> tuple[bool, list[str]]:

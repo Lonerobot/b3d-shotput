@@ -63,8 +63,8 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             # If no selected render layer node found, check Shotput properties
             if not target_render_layer:
                 shotput_props = context.scene.shotput
-                if shotput_props.render_layer and shotput_props.render_layer in render_layers:
-                    target_render_layer = shotput_props.render_layer
+                if shotput_props.output_layer and shotput_props.output_layer in render_layers:
+                    target_render_layer = shotput_props.output_layer
                     print(f"Shotput: Using render layer from Shotput properties: {target_render_layer}")
                 else:
                     self.report({'ERROR'}, 
@@ -76,11 +76,11 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             target_render_layer = render_layers[0]
             print(f"Shotput: Using single available render layer: {target_render_layer}")
         
-        # Temporarily set the Shotput render layer property if needed
+        # Temporarily set the Shotput output layer property if needed
         shotput_props = context.scene.shotput
-        if shotput_props.render_layer != target_render_layer:
-            original_render_layer = shotput_props.render_layer
-            shotput_props.render_layer = target_render_layer
+        if shotput_props.output_layer != target_render_layer:
+            original_render_layer = shotput_props.output_layer
+            shotput_props.output_layer = target_render_layer
             print(f"Shotput: Temporarily set render layer to '{target_render_layer}'")
         
         # Connect based on node type
@@ -110,9 +110,9 @@ class OT_Lazy_Hookup(bpy.types.Operator):
             return {'CANCELLED'}
             
         finally:
-            # Restore original render layer property if we changed it
+            # Restore original output layer property if we changed it
             if original_render_layer is not None:
-                shotput_props.render_layer = original_render_layer
+                shotput_props.output_layer = original_render_layer
                 print(f"Shotput: Restored render layer to '{original_render_layer}'")
 
 
