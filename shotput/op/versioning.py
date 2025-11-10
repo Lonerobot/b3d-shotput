@@ -742,19 +742,19 @@ class OT_Update_Version(bpy.types.Operator):
                 logger.warning(f"Unknown render format '{render_format}', defaulting to .png extension")
             
             # Build the full path based on format type
+            # Use Path for proper OS-specific separators
+            from pathlib import Path
+            base_path_obj = Path(base_path)
+            
             if is_movie_format:
                 # Movie formats: no sequence padding
-                full_path = f"{base_path}/{filename}.{file_extension}"
+                full_path = str(base_path_obj / f"{filename}.{file_extension}")
                 logger.info(f"Using movie format '{render_format}' - no sequence padding")
             else:
                 # Image sequence formats: include sequence padding
                 sequence_padding = get_sequence_padding()
-                full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+                full_path = str(base_path_obj / f"{filename}.{sequence_padding}.{file_extension}")
                 logger.info(f"Using image sequence format '{render_format}' - with padding {sequence_padding}")
-            
-            # Normalize path separators for consistency (use OS-appropriate separators)
-            from pathlib import Path
-            full_path = str(Path(full_path))
             
             # Update scene render settings
             context.scene.render.filepath = full_path
