@@ -29,6 +29,7 @@ class icons:
     aov = 0
     data = 0
     token_help = 0
+    ayon = 0
     
     @classmethod
     def register_icons_(cls):
@@ -111,6 +112,7 @@ FALLBACK_ICONS = {
     'aov': 'STRIP_COLOR_02',
     'data': 'STRIP_COLOR_01',
     'token_help': 'QUESTION',
+    'ayon': 'WORLD',
 }
 
 

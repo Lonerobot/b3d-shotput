@@ -6,6 +6,7 @@ from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
 from ..utils.defaults import get_file_format_for_pass_type, load_default_passes, initialize_default_passes
+from ..utils import custom_icons
 
 logger = LoggerFactory.logger_obj()
 
@@ -1299,7 +1300,8 @@ class OT_Token_Help(bpy.types.Operator):
             
             # AYON-specific tokens with live values
             box = col.box()
-            box.label(text="AYON Integration Tokens", icon='NETWORK_DRIVE')
+            icon_ayon = custom_icons.get_icon_id_or_fallback('ayon')
+            box.label(text="AYON Integration Tokens", **icon_ayon)
             
             ayon_tokens = [
                 ('project', 'AYON project root'),

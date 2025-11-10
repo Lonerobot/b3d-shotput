@@ -924,7 +924,14 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Welcome/Description Box
         box = layout.box()
         col = box.column(align=True)
-        col.label(text="Shotput - Tokenised Render Output System", icon='RENDERLAYERS')
+        
+        # Show AYON icon if AYON is enabled
+        if os.getenv("AYON_PROJECT_NAME"):
+            icon_ayon = custom_icons.get_icon_id_or_fallback('ayon')
+            col.label(text="Shotput - Tokenised Render Output System", **icon_ayon)
+        else:
+            col.label(text="Shotput - Tokenised Render Output System", icon='RENDERLAYERS')
+        
         col.separator(factor=0.5)
         
         # Multi-line description with smaller text
