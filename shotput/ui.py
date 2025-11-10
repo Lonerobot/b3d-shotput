@@ -373,18 +373,26 @@ class SHOTPUT_OT_LoadPresetFromEnvironment(bpy.types.Operator):
                 item.name = pass_name
             
             # Load data passes checkboxes
+            # Handle both old format (list) and new format (dict)
             data_passes = data.get("data_passes", {})
-            props.z = data_passes.get("z", False)
-            props.mist = data_passes.get("mist", False)
-            props.normal = data_passes.get("normal", False)
-            props.vector = data_passes.get("vector", False)
-            props.position = data_passes.get("position", False)
-            props.occlusion = data_passes.get("occlusion", False)
-            props.volume_direct = data_passes.get("volume_direct", False)
-            props.volume_indirect = data_passes.get("volume_indirect", False)
-            props.crypto_object = data_passes.get("crypto_object", False)
-            props.crypto_material = data_passes.get("crypto_material", False)
-            props.crypto_asset = data_passes.get("crypto_asset", False)
+            if isinstance(data_passes, list):
+                # Old format: list of pass names - enable them as checkboxes
+                for pass_name in data_passes:
+                    if hasattr(props, pass_name):
+                        setattr(props, pass_name, True)
+            elif isinstance(data_passes, dict):
+                # New format: dict with explicit True/False values
+                props.z = data_passes.get("z", False)
+                props.mist = data_passes.get("mist", False)
+                props.normal = data_passes.get("normal", False)
+                props.vector = data_passes.get("vector", False)
+                props.position = data_passes.get("position", False)
+                props.occlusion = data_passes.get("occlusion", False)
+                props.volume_direct = data_passes.get("volume_direct", False)
+                props.volume_indirect = data_passes.get("volume_indirect", False)
+                props.crypto_object = data_passes.get("crypto_object", False)
+                props.crypto_material = data_passes.get("crypto_material", False)
+                props.crypto_asset = data_passes.get("crypto_asset", False)
             
             # Load path tokens
             if "root_folder_token" in data:
