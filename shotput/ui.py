@@ -4,6 +4,8 @@ from . import __release_stage__
 import os
 
 from .utils.log import LoggerFactory
+from .utils import custom_icons
+
 logger = LoggerFactory.logger_obj()
 
 def get_panel_title():
@@ -722,11 +724,15 @@ class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
 # UIList for passes
 class SHOTPUT_UL_CorePasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=True, icon='STRIP_COLOR_05')
+        # Use custom icon if available, otherwise fallback to built-in
+        icon_params = custom_icons.get_icon_id_or_fallback('core')
+        layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 class SHOTPUT_UL_AOVPasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=True, icon='STRIP_COLOR_02')
+        # Use custom icon if available, otherwise fallback to built-in
+        icon_params = custom_icons.get_icon_id_or_fallback('aov')
+        layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 # UIList for stored passes on File Output nodes
 class SHOTPUT_UL_StoredPasses(bpy.types.UIList):
@@ -780,7 +786,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             # Render Layer Channels mode - only show Core operator
             row = box.row()
             row.scale_y = 1.5
-            row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Create All Passes (From Render Layer)")
+            icon_params = custom_icons.get_icon_id_or_fallback('core')
+            row.operator("shotput.create_core_passes", text="Create All Passes (From Render Layer)", **icon_params)
             
             # Add helpful info
             col = box.column()
@@ -792,10 +799,13 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             # 4x1 horizontal layout for operators with increased height
             row = box.row(align=True)
             row.scale_y = 1.5
-            row.operator("shotput.create_core_passes", icon='STRIP_COLOR_05', text="Core")
+            icon_core = custom_icons.get_icon_id_or_fallback('core')
+            row.operator("shotput.create_core_passes", text="Core", **icon_core)
             row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Composite")
-            row.operator("shotput.create_aov_passes", icon='STRIP_COLOR_02', text="AOV")
-            row.operator("shotput.create_data_passes", icon='STRIP_COLOR_01', text="Data")
+            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
+            row.operator("shotput.create_aov_passes", text="AOV", **icon_aov)
+            icon_data = custom_icons.get_icon_id_or_fallback('data')
+            row.operator("shotput.create_data_passes", text="Data", **icon_data)
         
         # Only show these options in manual mode
         if not shotput.use_render_layer_channels:
@@ -819,7 +829,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row = box.row(align=True)
         row.prop(shotput, "file_name_token", text="File Name")
         row.menu("SHOTPUT_MT_token_menu_file", icon='ADD', text="")
-        row.operator("shotput.token_help", icon='QUESTION', text="")
+        icon_help = custom_icons.get_icon_id_or_fallback('token_help')
+        row.operator("shotput.token_help", text="", **icon_help)
         
         # Output Format in compact 2x2 grid
         box.label(text="Output Format")
@@ -838,7 +849,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             row.prop(shotput, "expand_core_ui", 
                     icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            row.label(text="Core Passes", icon='STRIP_COLOR_05')
+            icon_core = custom_icons.get_icon_id_or_fallback('core')
+            row.label(text="Core Passes", **icon_core)
             
             if expand_core:
                 box.prop(shotput, "core_override", text="Core Name Override")
@@ -858,7 +870,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             row.prop(shotput, "expand_aov_ui", 
                     icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            row.label(text="AOV Passes", icon='STRIP_COLOR_02')
+            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
+            row.label(text="AOV Passes", **icon_aov)
             
             if expand_aov:
                 box.prop(shotput, "aov_override", text="AOV Name Override")
@@ -883,7 +896,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             row.prop(shotput, "expand_data_ui", 
                     icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            row.label(text="Data Passes", icon='STRIP_COLOR_01')
+            icon_data = custom_icons.get_icon_id_or_fallback('data')
+            row.label(text="Data Passes", **icon_data)
             
             if expand_data:
                 # Basic data passes in 3x2 grid with toggle buttons
@@ -919,6 +933,11 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row = box.row()
         row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
         row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
+        
+        # Add environment preset menu if SHOTPUT_PRESET_PATH is set
+        if os.environ.get('SHOTPUT_PRESET_PATH'):
+            row = box.row()
+            row.menu("SHOTPUT_MT_preset_menu", icon='PRESET', text="Load from Environment")
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):

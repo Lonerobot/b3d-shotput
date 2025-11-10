@@ -52,10 +52,14 @@ from . import preferences
 from . import properties
 from . import op
 from . import ui
+from .utils import custom_icons
 
 
 def register():
     """Register all classes and initialize the addon"""
+    # Register custom icons first
+    custom_icons.register()
+    
     # Register in dependency order
     preferences.register()
     properties.register()
@@ -85,6 +89,9 @@ def unregister():
     op.unregister() 
     properties.unregister()
     preferences.unregister()
+    
+    # Unregister custom icons last
+    custom_icons.unregister()
     
     print(f"Shotput v{__version__}-{__release_stage__} unregistered successfully")
 

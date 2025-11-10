@@ -28,6 +28,7 @@ def load_default_passes():
     # Only load if environment variable is set (project-specific presets)
     env_path = os.environ.get('SHOTPUT_PRESET_PATH')
     if not env_path:
+        logger.debug("SHOTPUT_PRESET_PATH not set, using minimal defaults")
         # No environment variable set - return minimal defaults
         return {
             "core_passes": [],
@@ -42,25 +43,35 @@ def load_default_passes():
             "default_file_format": "OPEN_EXR"
         }
     
+    logger.info(f"SHOTPUT_PRESET_PATH is set to: {env_path}")
+    
     # Environment variable is set - try to load the preset
     env_path = Path(env_path)
     json_files = []
     
     if env_path.exists():
         if env_path.is_file():
+            logger.info(f"SHOTPUT_PRESET_PATH points to file: {env_path}")
             json_files = [env_path]
         else:
             # Directory path - search for JSON files
+            logger.info(f"SHOTPUT_PRESET_PATH points to directory, searching for JSON files")
             json_files = list(env_path.glob('*.json'))
+            logger.info(f"Found {len(json_files)} JSON files: {[f.name for f in json_files]}")
+    else:
+        logger.warning(f"SHOTPUT_PRESET_PATH does not exist: {env_path}")
     
     # Try each JSON file until we find a valid Shotput preset
     for json_path in json_files:
         try:
+            logger.debug(f"Attempting to load preset from: {json_path}")
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if is_valid_shotput_preset(data):
-                    logger.info(f"Loaded preset from {json_path}")
+                    logger.info(f"Successfully loaded valid preset from {json_path}")
                     return data
+                else:
+                    logger.debug(f"File {json_path.name} is not a valid Shotput preset (missing required keys)")
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.debug(f"Could not read {json_path}: {e}")
             continue
@@ -185,12 +196,17 @@ def apply_data_format_settings(file_output_node):
 def initialize_default_passes():
     """Initialize default passes for the scene"""
     try:
+        logger.info("Initializing default passes from SHOTPUT_PRESET_PATH")
         scene = bpy.context.scene
         if hasattr(scene, 'shotput'):
             props = scene.shotput
             defaults = load_default_passes()
             
             if defaults:
+                logger.debug(f"Applying preset with {len(defaults.get('core_passes', []))} core passes, "
+                           f"{len(defaults.get('aovs', []))} AOV passes, "
+                           f"{len(defaults.get('data_passes', []))} data passes")
+                
                 # Clear existing collections
                 props.core_passes.clear()
                 props.aov_passes.clear()
@@ -247,8 +263,13 @@ def initialize_default_passes():
                     }
                     format_value = format_map.get(defaults["default_file_format"], "OPEN_EXR")
                     props.output_format = format_value
+                
+                logger.info("Successfully initialized default passes")
+        else:
+            logger.warning("Scene does not have shotput properties")
                     
     except Exception as e:
+        logger.error(f"Error initializing default passes: {e}")
         print(f"Shotput: Error initializing default passes: {e}")
         import traceback
         traceback.print_exc()

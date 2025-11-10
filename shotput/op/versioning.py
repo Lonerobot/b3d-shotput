@@ -1,10 +1,11 @@
 import bpy
+import os
 from pathlib import Path
 
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
-from ..utils.defaults import get_file_format_for_pass_type
+from ..utils.defaults import get_file_format_for_pass_type, load_default_passes, initialize_default_passes
 
 logger = LoggerFactory.logger_obj()
 
@@ -402,7 +403,27 @@ class OT_Update_Version(bpy.types.Operator):
             # Validate that the composite node has proper configuration before updating scene render path
             if composite_node and self._is_composite_node_valid_for_scene_render(composite_node):
                 print(f"Shotput: Composite node {composite_node.name} is valid for scene render")
-                # Update scene render path using composite node properties
+                
+                # CRITICAL FIX: Update composite node's version BEFORE updating scene render path
+                # This ensures the {version} token resolves to the correct (latest) version
+                node_props = composite_node.shotput_data
+                
+                # If the composite node is path-linked, sync its version from the linked node
+                if self._is_path_linked(node_props):
+                    linked_node_name = getattr(node_props, 'linked_node', '')
+                    if linked_node_name and linked_node_name != 'NONE':
+                        scene = context.scene
+                        if scene and scene.node_tree:
+                            linked_node = scene.node_tree.nodes.get(linked_node_name)
+                            if linked_node and hasattr(linked_node, 'shotput_data'):
+                                # Sync version from linked node
+                                linked_version = getattr(linked_node.shotput_data, 'version', VersionUtils.versionDefault)
+                                node_props.version = linked_version
+                                logger.info(f"Synced composite node {composite_node.name} version to {linked_version} from linked node {linked_node_name}")
+                            else:
+                                logger.warning(f"Linked node {linked_node_name} not found, composite version may be incorrect")
+                
+                # Update scene render path using composite node properties (now with correct version)
                 self._update_scene_render_path(context, composite_node)
             else:
                 print(f"Shotput: Composite node {composite_node.name if composite_node else 'None'} not valid for scene render path update")
@@ -722,19 +743,19 @@ class OT_Update_Version(bpy.types.Operator):
                 logger.warning(f"Unknown render format '{render_format}', defaulting to .png extension")
             
             # Build the full path based on format type
+            # Use Path for proper OS-specific separators
+            from pathlib import Path
+            base_path_obj = Path(base_path)
+            
             if is_movie_format:
                 # Movie formats: no sequence padding
-                full_path = f"{base_path}/{filename}.{file_extension}"
+                full_path = str(base_path_obj / f"{filename}.{file_extension}")
                 logger.info(f"Using movie format '{render_format}' - no sequence padding")
             else:
                 # Image sequence formats: include sequence padding
                 sequence_padding = get_sequence_padding()
-                full_path = f"{base_path}/{filename}.{sequence_padding}.{file_extension}"
+                full_path = str(base_path_obj / f"{filename}.{sequence_padding}.{file_extension}")
                 logger.info(f"Using image sequence format '{render_format}' - with padding {sequence_padding}")
-            
-            # Normalize path separators for consistency (use OS-appropriate separators)
-            from pathlib import Path
-            full_path = str(Path(full_path))
             
             # Update scene render settings
             context.scene.render.filepath = full_path
@@ -1689,12 +1710,174 @@ class OT_Save_Preset(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
+class OT_Load_Preset_From_Env(bpy.types.Operator):
+    bl_idname = "shotput.load_preset_from_env"
+    bl_label = "Load Preset from Environment Path"
+    bl_description = "Load a preset from the SHOTPUT_PRESET_PATH directory"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    preset_file: bpy.props.StringProperty(
+        name="Preset File",
+        description="Name of the preset file to load"
+    )
+    
+    def execute(self, context):
+        """Load the specified preset file"""
+        env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+        if not env_path:
+            self.report({'ERROR'}, "SHOTPUT_PRESET_PATH environment variable is not set")
+            return {'CANCELLED'}
+        
+        preset_path = Path(env_path)
+        if preset_path.is_file():
+            # If env path is a file, use that directory
+            preset_path = preset_path.parent
+        
+        full_path = preset_path / self.preset_file
+        
+        if not full_path.exists():
+            self.report({'ERROR'}, f"Preset file not found: {full_path}")
+            return {'CANCELLED'}
+        
+        try:
+            import json
+            with open(full_path, 'r', encoding='utf-8') as f:
+                preset_data = json.load(f)
+            
+            # Validate preset structure
+            required_keys = ["core_passes", "aovs", "data_passes"]
+            if not all(key in preset_data for key in required_keys):
+                self.report({'ERROR'}, f"Invalid preset file format. Missing required keys.")
+                return {'CANCELLED'}
+            
+            # Apply the preset using the same logic as initialize_default_passes
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                props = scene.shotput
+                
+                # Clear existing collections
+                props.core_passes.clear()
+                props.aov_passes.clear()
+                
+                # Add core passes
+                for pass_name in preset_data.get("core_passes", []):
+                    item = props.core_passes.add()
+                    item.name = pass_name
+                
+                # Add AOV passes
+                for pass_name in preset_data.get("aovs", []):
+                    item = props.aov_passes.add()
+                    item.name = pass_name
+                
+                # Set data pass boolean properties from JSON array
+                if "data_passes" in preset_data and isinstance(preset_data["data_passes"], list):
+                    # Reset all data passes to False first
+                    data_pass_properties = [
+                        'z', 'mist', 'normal', 'vector', 'position', 'occlusion',
+                        'volume_direct', 'volume_indirect',
+                        'crypto_object', 'crypto_material', 'crypto_asset'
+                    ]
+                    for prop_name in data_pass_properties:
+                        if hasattr(props, prop_name):
+                            setattr(props, prop_name, False)
+                    
+                    # Enable data passes directly by property name from JSON
+                    for prop_name in preset_data["data_passes"]:
+                        if hasattr(props, prop_name):
+                            setattr(props, prop_name, True)
+                
+                # Set default scene properties
+                if "render_layer" in preset_data:
+                    props.render_layer = preset_data["render_layer"]
+                if "variant" in preset_data:
+                    props.variant = preset_data["variant"]
+                if "core_override" in preset_data:
+                    props.core_override = preset_data["core_override"]
+                if "aov_override" in preset_data:
+                    props.aov_override = preset_data["aov_override"]
+                if "root_folder_token" in preset_data:
+                    props.root_folder_token = preset_data["root_folder_token"]
+                if "file_name_token" in preset_data:
+                    props.file_name_token = preset_data["file_name_token"]
+                if "default_file_format" in preset_data:
+                    # Map to output_format enum with Blender's expected values
+                    format_map = {
+                        "PNG": "PNG",
+                        "JPG": "JPEG", 
+                        "JPEG": "JPEG",
+                        "EXR": "OPEN_EXR",
+                        "OPEN_EXR": "OPEN_EXR",
+                        "EXR_MULTILAYER": "OPEN_EXR_MULTILAYER",
+                        "OPEN_EXR_MULTILAYER": "OPEN_EXR_MULTILAYER"
+                    }
+                    format_value = format_map.get(preset_data["default_file_format"], "OPEN_EXR")
+                    props.output_format = format_value
+                
+                self.report({'INFO'}, f"Loaded preset: {self.preset_file}")
+                logger.info(f"Loaded preset from {full_path}")
+                return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, "Shotput properties not found")
+                return {'CANCELLED'}
+                
+        except json.JSONDecodeError as e:
+            self.report({'ERROR'}, f"Invalid JSON file: {e}")
+            return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Error loading preset: {e}")
+            logger.error(f"Error loading preset from {full_path}: {e}")
+            return {'CANCELLED'}
+
+
+class SHOTPUT_MT_PresetMenu(bpy.types.Menu):
+    bl_label = "Load Preset from Environment"
+    bl_idname = "SHOTPUT_MT_preset_menu"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+        
+        if not env_path:
+            layout.label(text="SHOTPUT_PRESET_PATH not set", icon='ERROR')
+            return
+        
+        preset_path = Path(env_path)
+        
+        # Handle both file and directory paths
+        if preset_path.is_file():
+            # If env path points to a file, use its parent directory
+            preset_path = preset_path.parent
+        
+        if not preset_path.exists() or not preset_path.is_dir():
+            layout.label(text="Invalid preset path", icon='ERROR')
+            layout.label(text=str(preset_path))
+            return
+        
+        # Find all JSON files in the preset directory
+        json_files = sorted(preset_path.glob('*.json'))
+        
+        if not json_files:
+            layout.label(text="No preset files found", icon='INFO')
+            layout.label(text=f"in {preset_path.name}")
+            return
+        
+        # Add operators for each preset file
+        for json_file in json_files:
+            op = layout.operator("shotput.load_preset_from_env", 
+                               text=json_file.stem, 
+                               icon='PRESET')
+            op.preset_file = json_file.name
+
+
 classes = (
     OT_Update_Version,
     OT_Token_Help,
     OT_Preview_Paths,
     OT_Load_Preset,
     OT_Save_Preset,
+    OT_Load_Preset_From_Env,
+    SHOTPUT_MT_PresetMenu,
 )
 
 
