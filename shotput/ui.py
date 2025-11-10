@@ -397,8 +397,10 @@ class SHOTPUT_OT_LoadPresetFromEnvironment(bpy.types.Operator):
                 props.output_format = data["default_file_format"]
             
             # Load other properties
-            if "render_layer" in data:
-                props.render_layer = data["render_layer"]
+            if "output_layer" in data:
+                props.output_layer = data["output_layer"]
+            elif "render_layer" in data:  # Backward compatibility
+                props.output_layer = data["render_layer"]
             if "variant" in data:
                 props.variant = data["variant"]
             if "core_override" in data:
@@ -477,7 +479,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
-            ('renderlayer', 'Render Layer'),
+            ('outputlayer', 'Output Layer'),
             ('passname', 'Pass Name'),
             ('variant', 'Variant'),
             ('version', 'Version'),
@@ -544,7 +546,7 @@ class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
-            ('renderlayer', 'Render Layer'),
+            ('outputlayer', 'Output Layer'),
             ('passname', 'Pass Name'),
             ('variant', 'Variant'),
             ('version', 'Version'),
@@ -611,7 +613,7 @@ class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
-            ('renderlayer', 'Render Layer'),
+            ('outputlayer', 'Output Layer'),
             ('passname', 'Pass Name'),
             ('variant', 'Variant'),
             ('version', 'Version'),
@@ -678,7 +680,7 @@ class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
-            ('renderlayer', 'Render Layer'),
+            ('outputlayer', 'Output Layer'),
             ('passname', 'Pass Name'),
             ('variant', 'Variant'),
             ('version', 'Version'),
@@ -864,12 +866,12 @@ class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
         """Update the node label based on current Shotput properties"""
         try:
             # Get the current properties
-            render_layer = getattr(shotput_data, 'render_layer', 'RenderLayer')
+            output_layer = getattr(shotput_data, 'output_layer', 'ViewLayer')
             pass_name = getattr(shotput_data, 'pass_name', 'Pass')
             variant = getattr(shotput_data, 'variant', 'MAIN')
             
             # Generate new label in the standard format
-            new_label = f"{render_layer}.{pass_name}.{variant}"
+            new_label = f"{output_layer}.{pass_name}.{variant}"
             
             # Only update if the label has changed
             if node.label != new_label:
@@ -921,10 +923,10 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         col.scale_y = 0.8
         col.label(text="Create and update automatic versions for renders")
 
-        # Scene Properties Box - Render Layer and Variant
+        # Scene Properties Box - Output Layer and Variant
         box = layout.box()
         box.label(text="Scene Properties", icon='SCENE_DATA')
-        box.prop(shotput, "render_layer", text="Render Layer")
+        box.prop(shotput, "output_layer", text="Output Layer")
         box.prop(shotput, "variant", text="Variant")
 
         # Update Version - larger button
@@ -1175,7 +1177,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         else:
             box.label(text="Shotput Properties", icon='SETTINGS')
         
-        box.prop(shotput_data, "render_layer", text="Render Layer")
+        box.prop(shotput_data, "output_layer", text="Output Layer")
         box.prop(shotput_data, "pass_name", text="Pass Name")
         box.prop(shotput_data, "variant", text="Variant")
         
