@@ -22,12 +22,12 @@ class OT_Create_Core_Passes(bpy.types.Operator):
                 context.space_data.type == 'NODE_EDITOR' and
                 context.space_data.tree_type == 'CompositorNodeTree'):
             return False
-        
+    def poll(cls, context):
         shotput = context.scene.shotput
         
         # Check required fields
         required_fields = [
-            shotput.render_layer.strip(),
+            shotput.output_layer.strip(),
             shotput.variant.strip(),
             shotput.root_folder_token.strip(),
             shotput.file_name_token.strip()
@@ -97,8 +97,8 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             self.report({'ERROR'}, "No compositor node tree found")
             return {'CANCELLED'}
         
-        # Create node label: render_layer.area.variant (area_name set above based on mode)
-        node_label = f"{shotput_props.render_layer}.{area_name}.{shotput_props.variant}"
+        # Create node label: output_layer.area.variant (area_name set above based on mode)
+        node_label = f"{shotput_props.output_layer}.{area_name}.{shotput_props.variant}"
         
         # Create File Output node
         file_output = tree.nodes.new(type='CompositorNodeOutputFile')
@@ -180,7 +180,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         node_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
         # Copy scene properties to node
-        node_props.render_layer = shotput_props.render_layer
+        node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
         node_props.root_folder_token = shotput_props.root_folder_token
         node_props.file_name_token = shotput_props.file_name_token
@@ -579,8 +579,8 @@ class OT_Create_Core_Passes(bpy.types.Operator):
     def _create_composite_node(self, context, tree, shotput_props, token_parser, core_node):
         """Create a Shotput Composite node (actual Blender Composite node for main output)"""
         
-        # Create node label: render_layer.composite.variant
-        node_label = f"{shotput_props.render_layer}.composite.{shotput_props.variant}"
+        # Create node label: output_layer.composite.variant
+        node_label = f"{shotput_props.output_layer}.composite.{shotput_props.variant}"
         
         # Create Composite node (not File Output) - this routes to main render output
         composite_node = tree.nodes.new(type='CompositorNodeComposite')
@@ -639,7 +639,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
         # Copy scene properties to composite node
-        comp_props.render_layer = shotput_props.render_layer
+        comp_props.output_layer = shotput_props.output_layer
         comp_props.variant = shotput_props.variant
         comp_props.file_name_token = shotput_props.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
@@ -700,7 +700,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         
         # Check required fields
         required_fields = [
-            shotput.render_layer.strip(),
+            shotput.output_layer.strip(),
             shotput.variant.strip(),
             shotput.root_folder_token.strip(),
             shotput.file_name_token.strip()
@@ -860,7 +860,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
         # Copy properties from source
-        comp_props.render_layer = render_layer
+        comp_props.output_layer = render_layer
         comp_props.variant = variant
         comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         comp_props.pass_name = "composite"  # Set pass name to "composite"
