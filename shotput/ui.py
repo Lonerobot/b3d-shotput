@@ -933,6 +933,11 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         row = box.row()
         row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
         row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
+        
+        # Add environment preset menu if SHOTPUT_PRESET_PATH is set
+        if os.environ.get('SHOTPUT_PRESET_PATH'):
+            row = box.row()
+            row.menu("SHOTPUT_MT_preset_menu", icon='PRESET', text="Load from Environment")
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):

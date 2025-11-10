@@ -1,10 +1,11 @@
 import bpy
+import os
 from pathlib import Path
 
 from ..utils.log import LoggerFactory
 from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
-from ..utils.defaults import get_file_format_for_pass_type
+from ..utils.defaults import get_file_format_for_pass_type, load_default_passes, initialize_default_passes
 
 logger = LoggerFactory.logger_obj()
 
@@ -1709,12 +1710,174 @@ class OT_Save_Preset(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
+class OT_Load_Preset_From_Env(bpy.types.Operator):
+    bl_idname = "shotput.load_preset_from_env"
+    bl_label = "Load Preset from Environment Path"
+    bl_description = "Load a preset from the SHOTPUT_PRESET_PATH directory"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    preset_file: bpy.props.StringProperty(
+        name="Preset File",
+        description="Name of the preset file to load"
+    )
+    
+    def execute(self, context):
+        """Load the specified preset file"""
+        env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+        if not env_path:
+            self.report({'ERROR'}, "SHOTPUT_PRESET_PATH environment variable is not set")
+            return {'CANCELLED'}
+        
+        preset_path = Path(env_path)
+        if preset_path.is_file():
+            # If env path is a file, use that directory
+            preset_path = preset_path.parent
+        
+        full_path = preset_path / self.preset_file
+        
+        if not full_path.exists():
+            self.report({'ERROR'}, f"Preset file not found: {full_path}")
+            return {'CANCELLED'}
+        
+        try:
+            import json
+            with open(full_path, 'r', encoding='utf-8') as f:
+                preset_data = json.load(f)
+            
+            # Validate preset structure
+            required_keys = ["core_passes", "aovs", "data_passes"]
+            if not all(key in preset_data for key in required_keys):
+                self.report({'ERROR'}, f"Invalid preset file format. Missing required keys.")
+                return {'CANCELLED'}
+            
+            # Apply the preset using the same logic as initialize_default_passes
+            scene = context.scene
+            if hasattr(scene, 'shotput'):
+                props = scene.shotput
+                
+                # Clear existing collections
+                props.core_passes.clear()
+                props.aov_passes.clear()
+                
+                # Add core passes
+                for pass_name in preset_data.get("core_passes", []):
+                    item = props.core_passes.add()
+                    item.name = pass_name
+                
+                # Add AOV passes
+                for pass_name in preset_data.get("aovs", []):
+                    item = props.aov_passes.add()
+                    item.name = pass_name
+                
+                # Set data pass boolean properties from JSON array
+                if "data_passes" in preset_data and isinstance(preset_data["data_passes"], list):
+                    # Reset all data passes to False first
+                    data_pass_properties = [
+                        'z', 'mist', 'normal', 'vector', 'position', 'occlusion',
+                        'volume_direct', 'volume_indirect',
+                        'crypto_object', 'crypto_material', 'crypto_asset'
+                    ]
+                    for prop_name in data_pass_properties:
+                        if hasattr(props, prop_name):
+                            setattr(props, prop_name, False)
+                    
+                    # Enable data passes directly by property name from JSON
+                    for prop_name in preset_data["data_passes"]:
+                        if hasattr(props, prop_name):
+                            setattr(props, prop_name, True)
+                
+                # Set default scene properties
+                if "render_layer" in preset_data:
+                    props.render_layer = preset_data["render_layer"]
+                if "variant" in preset_data:
+                    props.variant = preset_data["variant"]
+                if "core_override" in preset_data:
+                    props.core_override = preset_data["core_override"]
+                if "aov_override" in preset_data:
+                    props.aov_override = preset_data["aov_override"]
+                if "root_folder_token" in preset_data:
+                    props.root_folder_token = preset_data["root_folder_token"]
+                if "file_name_token" in preset_data:
+                    props.file_name_token = preset_data["file_name_token"]
+                if "default_file_format" in preset_data:
+                    # Map to output_format enum with Blender's expected values
+                    format_map = {
+                        "PNG": "PNG",
+                        "JPG": "JPEG", 
+                        "JPEG": "JPEG",
+                        "EXR": "OPEN_EXR",
+                        "OPEN_EXR": "OPEN_EXR",
+                        "EXR_MULTILAYER": "OPEN_EXR_MULTILAYER",
+                        "OPEN_EXR_MULTILAYER": "OPEN_EXR_MULTILAYER"
+                    }
+                    format_value = format_map.get(preset_data["default_file_format"], "OPEN_EXR")
+                    props.output_format = format_value
+                
+                self.report({'INFO'}, f"Loaded preset: {self.preset_file}")
+                logger.info(f"Loaded preset from {full_path}")
+                return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, "Shotput properties not found")
+                return {'CANCELLED'}
+                
+        except json.JSONDecodeError as e:
+            self.report({'ERROR'}, f"Invalid JSON file: {e}")
+            return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Error loading preset: {e}")
+            logger.error(f"Error loading preset from {full_path}: {e}")
+            return {'CANCELLED'}
+
+
+class SHOTPUT_MT_PresetMenu(bpy.types.Menu):
+    bl_label = "Load Preset from Environment"
+    bl_idname = "SHOTPUT_MT_preset_menu"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+        
+        if not env_path:
+            layout.label(text="SHOTPUT_PRESET_PATH not set", icon='ERROR')
+            return
+        
+        preset_path = Path(env_path)
+        
+        # Handle both file and directory paths
+        if preset_path.is_file():
+            # If env path points to a file, use its parent directory
+            preset_path = preset_path.parent
+        
+        if not preset_path.exists() or not preset_path.is_dir():
+            layout.label(text="Invalid preset path", icon='ERROR')
+            layout.label(text=str(preset_path))
+            return
+        
+        # Find all JSON files in the preset directory
+        json_files = sorted(preset_path.glob('*.json'))
+        
+        if not json_files:
+            layout.label(text="No preset files found", icon='INFO')
+            layout.label(text=f"in {preset_path.name}")
+            return
+        
+        # Add operators for each preset file
+        for json_file in json_files:
+            op = layout.operator("shotput.load_preset_from_env", 
+                               text=json_file.stem, 
+                               icon='PRESET')
+            op.preset_file = json_file.name
+
+
 classes = (
     OT_Update_Version,
     OT_Token_Help,
     OT_Preview_Paths,
     OT_Load_Preset,
     OT_Save_Preset,
+    OT_Load_Preset_From_Env,
+    SHOTPUT_MT_PresetMenu,
 )
 
 
