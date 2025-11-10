@@ -402,7 +402,27 @@ class OT_Update_Version(bpy.types.Operator):
             # Validate that the composite node has proper configuration before updating scene render path
             if composite_node and self._is_composite_node_valid_for_scene_render(composite_node):
                 print(f"Shotput: Composite node {composite_node.name} is valid for scene render")
-                # Update scene render path using composite node properties
+                
+                # CRITICAL FIX: Update composite node's version BEFORE updating scene render path
+                # This ensures the {version} token resolves to the correct (latest) version
+                node_props = composite_node.shotput_data
+                
+                # If the composite node is path-linked, sync its version from the linked node
+                if self._is_path_linked(node_props):
+                    linked_node_name = getattr(node_props, 'linked_node', '')
+                    if linked_node_name and linked_node_name != 'NONE':
+                        scene = context.scene
+                        if scene and scene.node_tree:
+                            linked_node = scene.node_tree.nodes.get(linked_node_name)
+                            if linked_node and hasattr(linked_node, 'shotput_data'):
+                                # Sync version from linked node
+                                linked_version = getattr(linked_node.shotput_data, 'version', VersionUtils.versionDefault)
+                                node_props.version = linked_version
+                                logger.info(f"Synced composite node {composite_node.name} version to {linked_version} from linked node {linked_node_name}")
+                            else:
+                                logger.warning(f"Linked node {linked_node_name} not found, composite version may be incorrect")
+                
+                # Update scene render path using composite node properties (now with correct version)
                 self._update_scene_render_path(context, composite_node)
             else:
                 print(f"Shotput: Composite node {composite_node.name if composite_node else 'None'} not valid for scene render path update")
