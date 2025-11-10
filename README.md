@@ -17,7 +17,7 @@ The TokenParser class provides 16+ dynamic tokens for flexible path construction
 - `{version}` - Automatically managed version numbers
 
 **Render Tokens:**
-- `{renderlayer}` - Current render layer name
+- `{outputlayer}` - Current output layer name (replaces deprecated `{renderlayer}`)
 - `{passname}` - Individual pass name (beauty, diffuse, etc.)
 - `{variant}` - Version variant identifier
 - `{frame}` - Current frame number with padding
@@ -129,7 +129,7 @@ composite_node.root_folder_token = "composite"
 ### Path Token Examples
 ```python
 # Feature film shot structure
-"{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}"
+"{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}"
 # Result: Z:/projects/film/seq010/shot020/Beauty_diffuse_v001/008
 
 # Commercial project structure  
@@ -175,8 +175,8 @@ create_data_passes()    # → EXR Multilayer files (forced override)
     "composite_auto_link": true,
     "backup_original_tokens": true
   },
-  "root_folder_token": "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}",
-  "file_name_token": "{renderlayer}_{passname}_{variant}"
+  "root_folder_token": "{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}",
+  "file_name_token": "{outputlayer}_{passname}_{variant}"
 }
 ```
 
@@ -310,7 +310,23 @@ Shotput is designed to integrate with:
 3. **Toggle controls** provide quick access to common boolean settings
 4. **Advanced sections** can be collapsed to maintain clean interface for basic operations
 
-## Recent Updates (v0.0.3)
+## Recent Updates (v1.1.0)
+
+### 🎯 Output Layer Refactoring (BREAKING for API users)
+- **Renamed property**: `render_layer` → `output_layer` throughout codebase to avoid semantic conflict with Blender's built-in render layers
+- **New token**: `{outputlayer}` replaces `{renderlayer}` (old token still works for backward compatibility)
+- **Updated UI labels**: All "Render Layer" labels changed to "Output Layer" for clarity
+- **Backward compatible**: Old presets with `render_layer` key still load correctly
+- **Deprecated token support**: `{renderlayer}` token still resolves but is deprecated
+
+### 🐛 Bug Fixes
+- **Fixed preset loading**: Now handles both list and dict formats for `data_passes` field
+- **Fixed operator polls**: Removed duplicate poll methods in create operators
+- **Improved validation**: Better error handling for legacy preset formats
+
+---
+
+## Previous Updates (v0.0.3)
 
 ### 🎉 Major UI Improvements
 - **Enhanced visual consistency** with color-coded icon system across all pass types
