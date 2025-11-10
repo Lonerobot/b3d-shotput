@@ -34,12 +34,12 @@ def load_default_passes():
             "core_passes": [],
             "aovs": [],
             "data_passes": [],
-            "render_layer": "ViewLayer",
+            "output_layer": "ViewLayer",
             "variant": "v001",
             "core_override": "Core",
             "aov_override": "AOV",
-            "root_folder_token": "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}",
-            "file_name_token": "{renderlayer}_{passname}_{variant}",
+            "root_folder_token": "{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}",
+            "file_name_token": "{outputlayer}_{passname}_{variant}",
             "default_file_format": "OPEN_EXR"
         }
     
@@ -82,12 +82,12 @@ def load_default_passes():
         "core_passes": [],
         "aovs": [],
         "data_passes": [],
-        "render_layer": "ViewLayer",
+        "output_layer": "ViewLayer",
         "variant": "v001",
         "core_override": "Core",
         "aov_override": "AOV",
-        "root_folder_token": "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}",
-        "file_name_token": "{renderlayer}_{passname}_{variant}",
+        "root_folder_token": "{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}",
+        "file_name_token": "{outputlayer}_{passname}_{variant}",
         "default_file_format": "OPEN_EXR"
     }
 
@@ -238,8 +238,8 @@ def initialize_default_passes():
                             setattr(props, prop_name, True)
                 
                 # Set default scene properties
-                if "render_layer" in defaults:
-                    props.render_layer = defaults["render_layer"]
+                if "output_layer" in defaults:
+                    props.output_layer = defaults["output_layer"]
                 if "variant" in defaults:
                     props.variant = defaults["variant"]
                 if "core_override" in defaults:

@@ -53,7 +53,7 @@ def get_render_layer_node(context):
         # If no selected render layer node found, use Shotput properties
         if not target_layer:
             shotput_props = context.scene.shotput
-            target_layer = shotput_props.render_layer
+            target_layer = shotput_props.output_layer
             
             # Validate that the selected layer exists
             if target_layer not in render_layers:

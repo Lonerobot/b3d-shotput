@@ -1249,9 +1249,9 @@ class OT_Token_Help(bpy.types.Operator):
                 scene = context.scene
                 shotput_props = getattr(scene, 'shotput', None) if scene else None
                 
-                self.render_layer = getattr(shotput_props, 'render_layer', None) if shotput_props else None
-                if not self.render_layer:
-                    self.render_layer = getattr(context, 'view_layer', None).name if hasattr(context, 'view_layer') and context.view_layer else "RenderLayer"
+                self.output_layer = getattr(shotput_props, 'output_layer', None) if shotput_props else None
+                if not self.output_layer:
+                    self.output_layer = getattr(context, 'view_layer', None).name if hasattr(context, 'view_layer') and context.view_layer else "RenderLayer"
                 
                 self.variant = getattr(shotput_props, 'variant', 'main') if shotput_props else "main"
                 self.pass_name = "beauty"
@@ -1428,10 +1428,10 @@ class OT_Preview_Paths(bpy.types.Operator):
         # Create a temporary token parser
         class TempNodeProps:
             def __init__(self, props):
-                self.render_layer = getattr(props, 'render_layer', None) or "RenderLayer"
+                self.output_layer = getattr(props, 'output_layer', None) or "RenderLayer"
                 self.variant = getattr(props, 'variant', None) or "Main"
-                self.root_folder_token = getattr(props, 'root_folder_token', None) or "{workdir}/{subpath}/{renderlayer}_{passname}_{variant}/{version}"
-                self.file_name_token = getattr(props, 'file_name_token', None) or "{renderlayer}_{passname}_{variant}"
+                self.root_folder_token = getattr(props, 'root_folder_token', None) or "{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}"
+                self.file_name_token = getattr(props, 'file_name_token', None) or "{outputlayer}_{passname}_{variant}"
                 self.pass_name = "Preview"
                 self.version = "v001"
         
@@ -1538,8 +1538,8 @@ class OT_Load_Preset(bpy.types.Operator):
                 item.name = pass_name
             
             # Load other properties
-            if "render_layer" in data:
-                props.render_layer = data["render_layer"]
+            if "output_layer" in data:
+                props.output_layer = data["output_layer"]
             if "variant" in data:
                 props.variant = data["variant"]
             if "core_override" in data:
@@ -1631,7 +1631,7 @@ class OT_Save_Preset(bpy.types.Operator):
                 "core_passes": [item.name for item in props.core_passes],
                 "aovs": [item.name for item in props.aov_passes],
                 "data_passes": [],
-                "render_layer": props.render_layer,
+                "output_layer": props.output_layer,
                 "variant": props.variant,
                 "core_override": props.core_override,
                 "aov_override": props.aov_override,
@@ -1691,16 +1691,16 @@ class OT_Save_Preset(bpy.types.Operator):
             return {'CANCELLED'}
     
     def invoke(self, context, event):
-        # Set default filename based on render layer and variant
+        # Set default filename based on output layer and variant
         scene = context.scene
         if hasattr(scene, 'shotput'):
             props = scene.shotput
-            render_layer = props.render_layer.lower() if props.render_layer else "default"
+            output_layer = props.output_layer.lower() if props.output_layer else "default"
             variant = props.variant.lower() if props.variant else "base"
             # Replace any spaces or special characters with underscores for filename safety
-            render_layer = "".join(c if c.isalnum() else "_" for c in render_layer)
+            output_layer = "".join(c if c.isalnum() else "_" for c in output_layer)
             variant = "".join(c if c.isalnum() else "_" for c in variant)
-            self.filepath = f"shotput_preset_{render_layer}_{variant}.json"
+            self.filepath = f"shotput_preset_{output_layer}_{variant}.json"
         else:
             # Fallback to timestamp if properties not available
             import datetime
@@ -1787,8 +1787,8 @@ class OT_Load_Preset_From_Env(bpy.types.Operator):
                             setattr(props, prop_name, True)
                 
                 # Set default scene properties
-                if "render_layer" in preset_data:
-                    props.render_layer = preset_data["render_layer"]
+                if "output_layer" in preset_data:
+                    props.output_layer = preset_data["output_layer"]
                 if "variant" in preset_data:
                     props.variant = preset_data["variant"]
                 if "core_override" in preset_data:

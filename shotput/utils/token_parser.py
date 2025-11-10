@@ -81,7 +81,7 @@ class TokenParser:
         Handles path linking - if node is path-linked, uses linked node's path as base.
         
         Args:
-            token_string: String containing tokens like "{workdir}/{renderlayer}"
+            token_string: String containing tokens like "{workdir}/{outputlayer}"
             **kwargs: Additional token values to override defaults
             
         Returns:
@@ -107,7 +107,7 @@ class TokenParser:
         file slot patterns that should only contain filenames.
         
         Args:
-            token_string: String containing filename tokens like "{renderlayer}_{passname}_{variant}"
+            token_string: String containing filename tokens like "{outputlayer}_{passname}_{variant}"
             **kwargs: Additional token values to override defaults
             
         Returns:
@@ -265,7 +265,7 @@ class TokenParser:
         Parse a token string normally (non-linked mode).
         
         Args:
-            token_string: String containing tokens like "{workdir}/{renderlayer}"
+            token_string: String containing tokens like "{workdir}/{outputlayer}"
             **kwargs: Additional token values to override defaults
             
         Returns:
