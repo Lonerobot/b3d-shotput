@@ -304,6 +304,165 @@ class SHOTPUT_OT_InsertToken(bpy.types.Operator):
             self.report({'ERROR'}, f"Failed to insert token: {str(e)}")
             return {'CANCELLED'}
 
+class SHOTPUT_OT_LoadPresetFromEnvironment(bpy.types.Operator):
+    """Load a preset file from the SHOTPUT_PRESET_PATH environment directory"""
+    bl_idname = "shotput.load_preset_from_environment"
+    bl_label = "Load Preset from Environment"
+    bl_description = "Load a preset from the SHOTPUT_PRESET_PATH directory"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    preset_filename: bpy.props.StringProperty(
+        name="Preset File",
+        description="Preset file to load"
+    )
+    
+    def execute(self, context):
+        try:
+            import json
+            from pathlib import Path
+            from .utils.defaults import is_valid_shotput_preset
+            
+            # Get the environment path
+            env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+            if not env_path:
+                self.report({'ERROR'}, "SHOTPUT_PRESET_PATH environment variable not set")
+                return {'CANCELLED'}
+            
+            # Build full path to preset file
+            preset_path = Path(env_path)
+            if preset_path.is_file():
+                # If env path points to a file, use its directory
+                preset_path = preset_path.parent / self.preset_filename
+            else:
+                # If env path is a directory, use it directly
+                preset_path = preset_path / self.preset_filename
+            
+            if not preset_path.exists():
+                self.report({'ERROR'}, f"Preset file not found: {preset_path}")
+                return {'CANCELLED'}
+            
+            # Load JSON file
+            with open(preset_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Validate preset structure
+            if not is_valid_shotput_preset(data):
+                self.report({'ERROR'}, "Invalid Shotput preset file structure")
+                return {'CANCELLED'}
+            
+            # Apply preset to scene properties (same logic as OT_Load_Preset)
+            scene = context.scene
+            if not hasattr(scene, 'shotput'):
+                self.report({'ERROR'}, "Shotput properties not found")
+                return {'CANCELLED'}
+            
+            props = scene.shotput
+            
+            # Clear existing pass collections
+            props.core_passes.clear()
+            props.aov_passes.clear()
+            
+            # Load core passes
+            for pass_name in data.get("core_passes", []):
+                item = props.core_passes.add()
+                item.name = pass_name
+            
+            # Load AOV passes
+            for pass_name in data.get("aovs", []):
+                item = props.aov_passes.add()
+                item.name = pass_name
+            
+            # Load data passes checkboxes
+            data_passes = data.get("data_passes", {})
+            props.z = data_passes.get("z", False)
+            props.mist = data_passes.get("mist", False)
+            props.normal = data_passes.get("normal", False)
+            props.vector = data_passes.get("vector", False)
+            props.position = data_passes.get("position", False)
+            props.occlusion = data_passes.get("occlusion", False)
+            props.volume_direct = data_passes.get("volume_direct", False)
+            props.volume_indirect = data_passes.get("volume_indirect", False)
+            props.crypto_object = data_passes.get("crypto_object", False)
+            props.crypto_material = data_passes.get("crypto_material", False)
+            props.crypto_asset = data_passes.get("crypto_asset", False)
+            
+            # Load path tokens
+            if "root_folder_token" in data:
+                props.root_folder_token = data["root_folder_token"]
+            if "file_name_token" in data:
+                props.file_name_token = data["file_name_token"]
+            
+            # Load format
+            if "default_file_format" in data:
+                props.output_format = data["default_file_format"]
+            
+            # Load other properties
+            if "render_layer" in data:
+                props.render_layer = data["render_layer"]
+            if "variant" in data:
+                props.variant = data["variant"]
+            if "core_override" in data:
+                props.core_override = data["core_override"]
+            if "aov_override" in data:
+                props.aov_override = data["aov_override"]
+            
+            preset_name = Path(self.preset_filename).stem
+            self.report({'INFO'}, f"Loaded preset '{preset_name}' from environment")
+            logger.info(f"Loaded Shotput preset from environment: {preset_path}")
+            
+            return {'FINISHED'}
+            
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to load preset: {str(e)}")
+            logger.error(f"Error loading preset from environment: {e}")
+            return {'CANCELLED'}
+    
+    def invoke(self, context, event):
+        # This gets called when the operator is invoked
+        # Just execute directly since the filename is already set
+        return self.execute(context)
+
+class SHOTPUT_MT_PresetEnvironmentMenu(bpy.types.Menu):
+    """Menu listing available preset files from SHOTPUT_PRESET_PATH"""
+    bl_idname = "SHOTPUT_MT_preset_environment_menu"
+    bl_label = "Load from Environment"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        # Get the environment path
+        env_path = os.environ.get('SHOTPUT_PRESET_PATH')
+        if not env_path:
+            layout.label(text="SHOTPUT_PRESET_PATH not set", icon='ERROR')
+            return
+        
+        from pathlib import Path
+        preset_path = Path(env_path)
+        
+        # If env path is a file, use its directory
+        if preset_path.is_file():
+            preset_dir = preset_path.parent
+        elif preset_path.is_dir():
+            preset_dir = preset_path
+        else:
+            layout.label(text="Invalid SHOTPUT_PRESET_PATH", icon='ERROR')
+            return
+        
+        # Find all JSON files in the directory
+        json_files = sorted(preset_dir.glob("*.json"))
+        
+        if not json_files:
+            layout.label(text="No preset files found", icon='INFO')
+            return
+        
+        # Add an operator for each JSON file
+        for json_file in json_files:
+            op = layout.operator("shotput.load_preset_from_environment", 
+                               text=json_file.stem, 
+                               icon='PRESET')
+            op.preset_filename = json_file.name
+
+
 # Token menu classes for different fields
 class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
     bl_label = "Insert Token"
@@ -755,12 +914,12 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Welcome/Description Box
         box = layout.box()
         col = box.column(align=True)
-        col.label(text="Shotput Render Pass Manager", icon='RENDERLAYERS')
+        col.label(text="Shotput - Tokenised Render Output System", icon='RENDERLAYERS')
         col.separator(factor=0.5)
         
         # Multi-line description with smaller text
         col.scale_y = 0.8
-        col.label(text="Create and update automatic outputs for render passes")
+        col.label(text="Create and update automatic versions for renders")
 
         # Scene Properties Box - Render Layer and Variant
         box = layout.box()
@@ -842,52 +1001,65 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
 
         # Only show pass selection sections in manual mode
         if not shotput.use_render_layer_channels:
-            # Core Passes UIList (collapsible, closed by default)
+            # Core and AOV Passes side by side
             box = layout.box()
+            
+            # Header row with both expand toggles
             row = box.row()
             expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
-            row.prop(shotput, "expand_core_ui", 
-                    icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
-                    icon_only=True, emboss=False)
-            icon_core = custom_icons.get_icon_id_or_fallback('core')
-            row.label(text="Core Passes", **icon_core)
-            
-            if expand_core:
-                box.prop(shotput, "core_override", text="Core Name Override")
-                row = box.row()
-                row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
-                col = row.column(align=True)
-                col.operator("shotput.core_pass_add", icon='ADD', text="")
-                col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
-                col.separator()
-                col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
-                col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
-
-            # AOV Passes UIList (collapsible, closed by default)
-            box = layout.box()
-            row = box.row()
             expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
-            row.prop(shotput, "expand_aov_ui", 
-                    icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
-                    icon_only=True, emboss=False)
-            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
-            row.label(text="AOV Passes", **icon_aov)
             
-            if expand_aov:
-                box.prop(shotput, "aov_override", text="AOV Name Override")
+            # Core header (left half)
+            split = row.split(factor=0.5)
+            core_row = split.row()
+            core_row.prop(shotput, "expand_core_ui", 
+                         icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
+                         icon_only=True, emboss=False)
+            icon_core = custom_icons.get_icon_id_or_fallback('core')
+            core_row.label(text="Core Passes", **icon_core)
+            
+            # AOV header (right half)
+            aov_row = split.row()
+            aov_row.prop(shotput, "expand_aov_ui", 
+                        icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
+                        icon_only=True, emboss=False)
+            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
+            aov_row.label(text="AOV Passes", **icon_aov)
+            
+            # Content row - split into two columns
+            if expand_core or expand_aov:
+                content_split = box.split(factor=0.5)
                 
-                # Add scan button for shader AOVs
-                row = box.row()
-                row.operator("shotput.scan_shader_aovs", text="Scan Scene for AOVs", icon='VIEWZOOM')
+                # Left column - Core Passes
+                core_col = content_split.column()
+                if expand_core:
+                    core_col.prop(shotput, "core_override", text="Core Override")
+                    row = core_col.row()
+                    row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
+                    col = row.column(align=True)
+                    col.operator("shotput.core_pass_add", icon='ADD', text="")
+                    col.operator("shotput.core_pass_remove", icon='REMOVE', text="")
+                    col.separator()
+                    col.operator("shotput.core_pass_move_up", icon='TRIA_UP', text="")
+                    col.operator("shotput.core_pass_move_down", icon='TRIA_DOWN', text="")
                 
-                row = box.row()
-                row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
-                col = row.column(align=True)
-                col.operator("shotput.aov_pass_add", icon='ADD', text="")
-                col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
-                col.separator()
-                col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
-                col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
+                # Right column - AOV Passes
+                aov_col = content_split.column()
+                if expand_aov:
+                    aov_col.prop(shotput, "aov_override", text="AOV Override")
+                  
+                    row = aov_col.row()
+                    row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
+                    col = row.column(align=True)
+                    col.operator("shotput.aov_pass_add", icon='ADD', text="")
+                    col.operator("shotput.aov_pass_remove", icon='REMOVE', text="")
+                    col.separator()
+                    col.operator("shotput.aov_pass_move_up", icon='TRIA_UP', text="")
+                    col.operator("shotput.aov_pass_move_down", icon='TRIA_DOWN', text="")
+                    
+                    # Scan button for shader AOVs
+                    scan_row = aov_col.row()
+                    scan_row.operator("shotput.scan_shader_aovs", text="Scan AOVs", icon='VIEWZOOM')
 
             # Data Passes Section (collapsible, closed by default)
             box = layout.box()
@@ -932,12 +1104,20 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Preset buttons
         row = box.row()
         row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
-        row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
         
-        # Add environment preset menu if SHOTPUT_PRESET_PATH is set
+        # Add environment preset menu button if SHOTPUT_PRESET_PATH is set and has JSON files
         if os.environ.get('SHOTPUT_PRESET_PATH'):
-            row = box.row()
-            row.menu("SHOTPUT_MT_preset_menu", icon='PRESET', text="Load from Environment")
+            from pathlib import Path
+            env_path = Path(os.environ.get('SHOTPUT_PRESET_PATH'))
+            preset_dir = env_path.parent if env_path.is_file() else env_path if env_path.is_dir() else None
+            
+            # Only show button if directory exists and has JSON files
+            if preset_dir and preset_dir.exists():
+                json_files = list(preset_dir.glob("*.json"))
+                if json_files:
+                    row.menu("SHOTPUT_MT_preset_environment_menu", icon='PRESET', text="")
+        
+        row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):
@@ -1106,10 +1286,12 @@ classes = (
     SHOTPUT_OT_TogglePathLinking,
     SHOTPUT_OT_SyncNodePasses,
     SHOTPUT_OT_InsertToken,
+    SHOTPUT_OT_LoadPresetFromEnvironment,
     SHOTPUT_MT_TokenMenuRoot,
     SHOTPUT_MT_TokenMenuFile,
     SHOTPUT_MT_TokenMenuNodeRoot,
     SHOTPUT_MT_TokenMenuNodeFile,
+    SHOTPUT_MT_PresetEnvironmentMenu,
 )
 
 def register():
