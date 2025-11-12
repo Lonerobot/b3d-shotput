@@ -62,6 +62,31 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         default='OPEN_EXR_MULTILAYER'
     )
     
+    # AYON-specific output preferences
+    ayon_root_folder_token: bpy.props.StringProperty(
+        name="AYON Root Folder Token",
+        description="Root folder token pattern for file output nodes when AYON is detected",
+        default="{workdir}/{subpath}/{blendfile}"
+    )
+    
+    ayon_file_name_token: bpy.props.StringProperty(
+        name="AYON File Name Token",
+        description="File name token pattern for file output nodes when AYON is detected",
+        default="{outputlayer}_{passname}_{variant}"
+    )
+    
+    ayon_composite_root_folder_token: bpy.props.StringProperty(
+        name="AYON Composite Root Folder Token",
+        description="Root folder token pattern for composite nodes when AYON is detected",
+        default="{workdir}/{subpath}/{blendfile}"
+    )
+    
+    ayon_composite_file_name_token: bpy.props.StringProperty(
+        name="AYON Composite File Name Token",
+        description="File name token pattern for composite nodes when AYON is detected",
+        default="/tmp/tmp"
+    )
+    
     # Node color preferences
     core_node_color: bpy.props.FloatVectorProperty(
         name="Core Node Color",
@@ -143,6 +168,34 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         split = col.split(factor=0.5, align=True)
         split.label(text="Data Node Format Override:")
         split.prop(self, "data_node_format_override", text="")
+        
+        # AYON Settings
+        box = layout.box()
+        box.label(text="AYON Pipeline Settings", icon="SYSTEM")
+        col = box.column(align=True)
+        
+        # Add visual indicator if AYON is currently detected
+        import os
+        if os.getenv("AYON_PROJECT_NAME"):
+            row = col.row()
+            row.alert = True
+            row.label(text=f"AYON Active: {os.getenv('AYON_PROJECT_NAME')}", icon="RADIOBUT_ON")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="AYON Root Folder Token:")
+        split.prop(self, "ayon_root_folder_token", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="AYON File Name Token:")
+        split.prop(self, "ayon_file_name_token", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="AYON Composite Root Token:")
+        split.prop(self, "ayon_composite_root_folder_token", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="AYON Composite File Token:")
+        split.prop(self, "ayon_composite_file_name_token", text="")
         
         # Node Color Settings
         box = layout.box()

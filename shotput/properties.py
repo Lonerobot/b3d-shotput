@@ -150,6 +150,13 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
         update=update_linked_node
     )
     
+    # AYON override property
+    use_ayon_output_style: bpy.props.BoolProperty(
+        name="Use AYON Output Style",
+        description="When enabled and AYON is detected, use AYON-specific output path tokens. Disable to use standard Shotput tokens even in AYON context",
+        default=True
+    )
+    
     @property
     def node(self):
         """Get the actual linked file output node from the scene's node tree"""
