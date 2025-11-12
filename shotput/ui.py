@@ -1410,8 +1410,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
-    # Add Shotput menu to compositor header
-    bpy.types.NODE_HT_header.append(menu_func_compositor)
+    # Add Shotput menu to compositor header (prepend to show on left side after standard menus)
+    bpy.types.NODE_HT_header.prepend(menu_func_compositor)
 
 def unregister():
     # Remove Shotput menu from compositor header
