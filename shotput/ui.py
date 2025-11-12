@@ -1282,6 +1282,99 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                 col.operator("shotput.stored_pass_move_up", icon='TRIA_UP', text="")
                 col.operator("shotput.stored_pass_move_down", icon='TRIA_DOWN', text="")
 
+
+class NODE_MT_shotput(bpy.types.Menu):
+    """Shotput menu for compositor workspace"""
+    bl_label = "Shotput"
+    bl_idname = "NODE_MT_shotput"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        layout.operator("shotput.update_version", text="Update Version", icon='FILE_REFRESH')
+        layout.operator("shotput.open_output_folder", text="Open Output Folder", icon='FILE_FOLDER')
+        layout.separator()
+        layout.operator("shotput.build_render_layers", text="Build Render Layers from View", icon='RENDERLAYERS')
+
+
+class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
+    """Create render layer nodes for each view layer in the scene"""
+    bl_idname = "shotput.build_render_layers"
+    bl_label = "Build Render Layers from View"
+    bl_description = "Create a render layer node for each view layer in the scene, positioned and aligned"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        """Only enable if we're in compositor"""
+        return (context.space_data and 
+                context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'CompositorNodeTree')
+    
+    def execute(self, context):
+        logger.info("Build Render Layers operator executed")
+        print("Shotput: Build Render Layers from View operator executed")
+        
+        # Get scene and compositor tree
+        scene = context.scene
+        if not scene.use_nodes:
+            scene.use_nodes = True
+            print("Shotput: Enabled compositor nodes")
+        
+        tree = scene.node_tree
+        if not tree:
+            self.report({'ERROR'}, "No compositor node tree found")
+            return {'CANCELLED'}
+        
+        # Get all view layers from the scene
+        view_layers = scene.view_layers
+        if not view_layers or len(view_layers) == 0:
+            self.report({'WARNING'}, "No view layers found in scene")
+            return {'CANCELLED'}
+        
+        # Starting position for the first node
+        start_x = 0
+        start_y = 0
+        
+        # Node spacing
+        spacing_y = 300  # Vertical spacing between nodes
+        
+        # Create a render layer node for each view layer
+        created_nodes = []
+        for i, view_layer in enumerate(view_layers):
+            # Create render layer node
+            render_node = tree.nodes.new(type='CompositorNodeRLayers')
+            render_node.name = f"Render Layers - {view_layer.name}"
+            render_node.label = view_layer.name
+            
+            # Set the view layer (scene property)
+            render_node.layer = view_layer.name
+            
+            # Position the node - stack vertically
+            render_node.location = (start_x, start_y - (i * spacing_y))
+            
+            created_nodes.append(render_node)
+            print(f"Shotput: Created render layer node for '{view_layer.name}' at {render_node.location}")
+        
+        # Select all created nodes
+        for node in tree.nodes:
+            node.select = False
+        for node in created_nodes:
+            node.select = True
+        
+        # Set the first node as active
+        if created_nodes:
+            tree.nodes.active = created_nodes[0]
+        
+        self.report({'INFO'}, f"Created {len(created_nodes)} render layer nodes")
+        return {'FINISHED'}
+
+
+def menu_func_compositor(self, context):
+    """Draw function to add Shotput menu to compositor header"""
+    self.layout.menu(NODE_MT_shotput.bl_idname)
+
+
 classes = (
     SHOTPUT_UL_CorePasses,
     SHOTPUT_UL_AOVPasses,
@@ -1309,13 +1402,21 @@ classes = (
     SHOTPUT_MT_TokenMenuNodeRoot,
     SHOTPUT_MT_TokenMenuNodeFile,
     SHOTPUT_MT_PresetEnvironmentMenu,
+    NODE_MT_shotput,
+    SHOTPUT_OT_BuildRenderLayers,
 )
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    
+    # Add Shotput menu to compositor header
+    bpy.types.NODE_HT_header.append(menu_func_compositor)
 
 def unregister():
+    # Remove Shotput menu from compositor header
+    bpy.types.NODE_HT_header.remove(menu_func_compositor)
+    
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 
