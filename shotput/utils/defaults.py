@@ -25,6 +25,15 @@ def is_valid_shotput_preset(data):
 
 def load_default_passes():
     """Load default passes from JSON file if SHOTPUT_PRESET_PATH is set"""
+    # Get the actual view layer name from context, or use "ViewLayer" as fallback
+    def get_current_view_layer_name():
+        try:
+            if hasattr(bpy.context, 'view_layer') and bpy.context.view_layer:
+                return bpy.context.view_layer.name
+        except:
+            pass
+        return "ViewLayer"
+    
     # Only load if environment variable is set (project-specific presets)
     env_path = os.environ.get('SHOTPUT_PRESET_PATH')
     if not env_path:
@@ -34,7 +43,7 @@ def load_default_passes():
             "core_passes": [],
             "aovs": [],
             "data_passes": [],
-            "output_layer": "ViewLayer",
+            "output_layer": get_current_view_layer_name(),
             "variant": "v001",
             "core_override": "Core",
             "aov_override": "AOV",
@@ -82,7 +91,7 @@ def load_default_passes():
         "core_passes": [],
         "aovs": [],
         "data_passes": [],
-        "output_layer": "ViewLayer",
+        "output_layer": get_current_view_layer_name(),
         "variant": "v001",
         "core_override": "Core",
         "aov_override": "AOV",

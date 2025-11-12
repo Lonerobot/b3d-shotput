@@ -368,19 +368,23 @@ class TokenParser:
     
     def _resolve_outputlayer(self) -> str:
         """Resolve output layer token from node properties (was render_layer)"""
+        output_layer_value = None
+        
         # Try new property name first
         if self.node_properties and hasattr(self.node_properties, 'output_layer'):
-            return getattr(self.node_properties, 'output_layer', 'ViewLayer')
+            output_layer_value = getattr(self.node_properties, 'output_layer', None)
         
         # Backward compatibility: check old render_layer property
-        if self.node_properties and hasattr(self.node_properties, 'render_layer'):
-            return getattr(self.node_properties, 'render_layer', 'ViewLayer')
+        if not output_layer_value and self.node_properties and hasattr(self.node_properties, 'render_layer'):
+            output_layer_value = getattr(self.node_properties, 'render_layer', None)
         
-        # Fallback to active view layer
-        if hasattr(bpy.context, 'view_layer') and bpy.context.view_layer:
-            return bpy.context.view_layer.name
+        # If the value is the default "ViewLayer" string or empty, use the actual view layer name
+        if not output_layer_value or output_layer_value == 'ViewLayer':
+            if hasattr(bpy.context, 'view_layer') and bpy.context.view_layer:
+                return bpy.context.view_layer.name
+            return 'ViewLayer'
         
-        return 'ViewLayer'
+        return output_layer_value
     
     def _resolve_passname(self) -> str:
         """Resolve pass name token from node properties"""

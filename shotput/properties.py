@@ -330,6 +330,27 @@ classes = (
     ShotputSceneProperties,
 )
 
+def init_scene_properties(scene):
+    """Initialize scene properties with actual view layer name"""
+    if hasattr(scene, 'shotput'):
+        shotput = scene.shotput
+        # Only update if it's still the default "ViewLayer" string
+        if shotput.output_layer == "ViewLayer":
+            try:
+                if hasattr(bpy.context, 'view_layer') and bpy.context.view_layer:
+                    shotput.output_layer = bpy.context.view_layer.name
+            except:
+                pass
+
+@bpy.app.handlers.persistent
+def load_post_handler(dummy):
+    """Handler that runs after a file is loaded"""
+    try:
+        for scene in bpy.data.scenes:
+            init_scene_properties(scene)
+    except:
+        pass
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -338,12 +359,27 @@ def register():
     bpy.types.CompositorNodeOutputFile.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     bpy.types.CompositorNodeComposite.shotput_data = bpy.props.PointerProperty(type=ShotputFileOutputProperties)
     
+    # Register handler to initialize output_layer with actual view layer name
+    if load_post_handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(load_post_handler)
+    
+    # Initialize for current scene if available
+    try:
+        if hasattr(bpy.context, 'scene') and bpy.context.scene:
+            init_scene_properties(bpy.context.scene)
+    except:
+        pass
+    
     # Don't initialize defaults at startup - let them load lazily when needed
     # This prevents unnecessary JSON loading every time Blender starts
     # The defaults will be initialized when the user first opens the Shotput UI
     # or creates their first node
 
 def unregister():
+    # Remove handler
+    if load_post_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(load_post_handler)
+    
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
         
