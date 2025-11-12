@@ -235,24 +235,32 @@ class TokenParser:
             
         return False
     
-    def _get_linked_node_base_path(self) -> str:
-        """Get the base path from the linked File Output node"""
+    def _get_linked_node(self):
+        """Get the actual linked File Output node object"""
         if not self.node_properties:
-            return ""
+            return None
         
         linked_node_name = getattr(self.node_properties, 'linked_node', '')
         if not linked_node_name or linked_node_name == 'NONE':
-            return ""
+            return None
         
         # Get the linked node from the scene
         scene = bpy.context.scene
         if not scene or not scene.node_tree:
-            logger.error("No scene or node tree available for linked path resolution")
-            return ""
+            logger.error("No scene or node tree available for linked node retrieval")
+            return None
         
         linked_node = scene.node_tree.nodes.get(linked_node_name)
         if not linked_node or linked_node.type != 'OUTPUT_FILE':
             logger.error(f"Linked node '{linked_node_name}' not found or not a File Output node")
+            return None
+        
+        return linked_node
+    
+    def _get_linked_node_base_path(self) -> str:
+        """Get the base path from the linked File Output node"""
+        linked_node = self._get_linked_node()
+        if not linked_node:
             return ""
         
         # Return the linked node's base_path
@@ -389,6 +397,18 @@ class TokenParser:
     def _resolve_version(self) -> str:
         """Resolve version token using VersionUtils - calculates next version without creating folders"""
         if self.node_properties:
+            # CRITICAL FIX: If this node is path-linked, get version from the linked node instead
+            # This ensures composite nodes and other linked nodes use the correct version
+            if self._is_path_linked():
+                linked_node = self._get_linked_node()
+                if linked_node and hasattr(linked_node, 'shotput_data'):
+                    linked_version = getattr(linked_node.shotput_data, 'version', None)
+                    if linked_version:
+                        logger.debug(f"Using linked node version: {linked_version}")
+                        return linked_version
+                    else:
+                        logger.warning("Linked node has no version property, falling back to own version")
+            
             # Try to get existing version from properties
             existing_version = getattr(self.node_properties, 'version', None)
             if existing_version:

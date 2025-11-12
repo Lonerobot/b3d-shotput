@@ -644,6 +644,15 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.file_name_token = shotput_props.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
         
+        # CRITICAL: Inherit version from core node
+        # This ensures composite nodes start with the same version as their parent
+        if core_node and hasattr(core_node, 'shotput_data'):
+            comp_props.version = getattr(core_node.shotput_data, 'version', 'v001')
+            print(f"Shotput: Composite inheriting version '{comp_props.version}' from core node")
+        else:
+            comp_props.version = getattr(shotput_props, 'version', 'v001')
+            print(f"Shotput: Composite inheriting version '{comp_props.version}' from scene props")
+        
         # Set up path linking to the core node (but make it toggleable)
         # First set the full root folder token as if it were created normally
         comp_props.root_folder_token = shotput_props.root_folder_token
@@ -864,6 +873,15 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.variant = variant
         comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         comp_props.pass_name = "composite"  # Set pass name to "composite"
+        
+        # CRITICAL: Inherit version from linked node or source
+        # This ensures composite nodes start with the same version as their parent
+        if linked_node and hasattr(linked_node, 'shotput_data'):
+            comp_props.version = getattr(linked_node.shotput_data, 'version', 'v001')
+            print(f"Shotput: Composite inheriting version '{comp_props.version}' from linked node")
+        else:
+            comp_props.version = getattr(source_props, 'version', 'v001')
+            print(f"Shotput: Composite inheriting version '{comp_props.version}' from source props")
         
         # Set up path linking if we have a linked node
         if linked_node:
