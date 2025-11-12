@@ -1371,8 +1371,11 @@ class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
 
 
 def menu_func_compositor(self, context):
-    """Draw function to add Shotput menu to compositor header"""
-    self.layout.menu(NODE_MT_shotput.bl_idname)
+    """Draw function to add Shotput menu to compositor header - only shows in compositor"""
+    # Only show in compositor node editor
+    if context.space_data and context.space_data.type == 'NODE_EDITOR':
+        if context.space_data.tree_type == 'CompositorNodeTree':
+            self.layout.menu(NODE_MT_shotput.bl_idname)
 
 
 classes = (
@@ -1410,8 +1413,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
-    # Add Shotput menu to compositor header (prepend to show on left side after standard menus)
-    bpy.types.NODE_HT_header.prepend(menu_func_compositor)
+    # Add Shotput menu to compositor header (append to show after core menus)
+    bpy.types.NODE_HT_header.append(menu_func_compositor)
 
 def unregister():
     # Remove Shotput menu from compositor header
