@@ -28,6 +28,7 @@ class icons:
     core = 0
     aov = 0
     data = 0
+    composite = 0
     token_help = 0
     ayon = 0
     
@@ -111,6 +112,7 @@ FALLBACK_ICONS = {
     'core': 'STRIP_COLOR_05',
     'aov': 'STRIP_COLOR_02',
     'data': 'STRIP_COLOR_01',
+    'composite': 'STRIP_COLOR_07',
     'token_help': 'QUESTION',
     'ayon': 'WORLD',
 }

@@ -977,7 +977,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             row.scale_y = 1.5
             icon_core = custom_icons.get_icon_id_or_fallback('core')
             row.operator("shotput.create_core_passes", text="Core", **icon_core)
-            row.operator("shotput.create_linked_composite", icon='STRIP_COLOR_07', text="Composite")
+            icon_comp = custom_icons.get_icon_id_or_fallback('composite')
+            row.operator("shotput.create_linked_composite", text="Composite", **icon_comp)
             icon_aov = custom_icons.get_icon_id_or_fallback('aov')
             row.operator("shotput.create_aov_passes", text="AOV", **icon_aov)
             icon_data = custom_icons.get_icon_id_or_fallback('data')
@@ -1120,7 +1121,6 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
         # Preset buttons
         row = box.row()
-        row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
         
         # Add environment preset menu button if SHOTPUT_PRESET_PATH is set and has JSON files
         if os.environ.get('SHOTPUT_PRESET_PATH'):
@@ -1132,7 +1132,11 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             if preset_dir and preset_dir.exists():
                 json_files = list(preset_dir.glob("*.json"))
                 if json_files:
-                    row.menu("SHOTPUT_MT_preset_environment_menu", icon='PRESET', text="")
+                    row.menu("SHOTPUT_MT_preset_environment_menu", icon='PRESET', text="Load From Env")
+        
+        row.operator("shotput.load_preset", icon='IMPORT', text="Load Pass Setup")
+        
+
         
         row.operator("shotput.save_preset", icon='EXPORT', text="Save Pass Setup")
 
@@ -1300,7 +1304,7 @@ class NODE_MT_shotput(bpy.types.Menu):
 class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
     """Create render layer nodes for each view layer in the scene"""
     bl_idname = "shotput.build_render_layers"
-    bl_label = "Build Render Layers from View"
+    bl_label = "View Layers To Render Layers"
     bl_description = "Create a render layer node for each view layer in the scene, positioned and aligned"
     bl_options = {'REGISTER', 'UNDO'}
     
