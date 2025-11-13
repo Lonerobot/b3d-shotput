@@ -2,6 +2,7 @@ import bpy
 
 from . import __package_name__
 from .utils.log import LoggerFactory
+from .utils import custom_icons
 logger = LoggerFactory.logger_obj()
 
 class SHOTPUT_OT_restore_node_colors(bpy.types.Operator):
@@ -120,7 +121,8 @@ class ShotputPreferences(bpy.types.AddonPreferences):
  
         # General Settings
         box = layout.box()
-        box.label(text="General Settings", icon="PREFERENCES")
+        icon_preferences = custom_icons.get_icon_id_or_fallback('preferences')
+        box.label(text="General Settings", **icon_preferences)
         col = box.column(align=True)
         
         split = col.split(factor=0.5, align=True)
@@ -129,7 +131,8 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         
         # Core Pass Settings
         box = layout.box()
-        box.label(text="Pass Settings", icon="RENDER_RESULT")
+        icon_render_result = custom_icons.get_icon_id_or_fallback('render_result')
+        box.label(text="Pass Settings", **icon_render_result)
         col = box.column(align=True)
         
         split = col.split(factor=0.5, align=True)
@@ -147,8 +150,10 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         # Node Color Settings
         box = layout.box()
         row = box.row()
-        row.label(text="Node Colors", icon="COLOR")
-        row.operator("shotput.restore_node_colors", text="Restore Defaults", icon="FILE_REFRESH")
+        icon_color = custom_icons.get_icon_id_or_fallback('color')
+        row.label(text="Node Colors", **icon_color)
+        icon_refresh_prefs = custom_icons.get_icon_id_or_fallback('file_refresh')
+        row.operator("shotput.restore_node_colors", text="Restore Defaults", **icon_refresh_prefs)
         
         col = box.column(align=True)
         

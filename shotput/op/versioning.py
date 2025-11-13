@@ -1240,7 +1240,8 @@ class OT_Token_Help(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         
-        layout.label(text="Shotput Token Reference", icon='HELP')
+        icon_help_token = custom_icons.get_icon_id_or_fallback('help')
+        layout.label(text="Shotput Token Reference", **icon_help_token)
         layout.separator()
         
         # Create a dummy props object for getting token values
@@ -1266,7 +1267,8 @@ class OT_Token_Help(bpy.types.Operator):
             # Core Shotput tokens with live values
             col = layout.column()
             box = col.box()
-            box.label(text="Core Shotput Tokens", icon='FILE_FOLDER')
+            icon_file_folder_help = custom_icons.get_icon_id_or_fallback('file_folder')
+            box.label(text="Core Shotput Tokens", **icon_file_folder_help)
             
             # Dynamic descriptions based on environment
             import os
@@ -1281,19 +1283,20 @@ class OT_Token_Help(bpy.types.Operator):
                 ('version', 'Version number'),
             ]
             
+            icon_dot_help = custom_icons.get_icon_id_or_fallback('dot')
             for token, desc in core_tokens:
                 try:
                     value = parser._resolve_token(token)
                     row = box.row()
                     split = row.split(factor=0.25)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.55)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
                     split = row.split(factor=0.25)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.55)
                     split.label(text=desc)
                     split.label(text="→ (error)")
@@ -1319,21 +1322,22 @@ class OT_Token_Help(bpy.types.Operator):
                         value = f"(not in AYON)"
                     row = box.row()
                     split = row.split(factor=0.3)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
                     split = row.split(factor=0.3)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text="→ (not available)")
             
             # Blender-specific tokens with live values
             box = col.box()
-            box.label(text="Blender Context Tokens", icon='BLENDER')
+            icon_blender_help = custom_icons.get_icon_id_or_fallback('blender')
+            box.label(text="Blender Context Tokens", **icon_blender_help)
             
             blender_tokens = [
                 ('blendfile', 'Current .blend filename'),
@@ -1346,21 +1350,22 @@ class OT_Token_Help(bpy.types.Operator):
                     value = parser._resolve_token(token)
                     row = box.row()
                     split = row.split(factor=0.3)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
                     split = row.split(factor=0.15)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.55)
                     split.label(text=desc)
                     split.label(text="→ (error)")
             
             # Date/time tokens with live values
             box = col.box()
-            box.label(text="Date/Time Tokens", icon='TIME')
+            icon_time_help = custom_icons.get_icon_id_or_fallback('time')
+            box.label(text="Date/Time Tokens", **icon_time_help)
             
             datetime_tokens = [
                 ('date', 'Current date (DD-MM-YY)'),
@@ -1372,25 +1377,27 @@ class OT_Token_Help(bpy.types.Operator):
                     value = parser._resolve_token(token)
                     row = box.row()
                     split = row.split(factor=0.3)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text=f"→ {value}")
                 except Exception as e:
                     row = box.row()
                     split = row.split(factor=0.3)
-                    split.label(text=f"{{{token}}}", icon='DOT')
+                    split.label(text=f"{{{token}}}", **icon_dot_help)
                     split = split.split(factor=0.6)
                     split.label(text=desc)
                     split.label(text="→ (error)")
             
         except Exception as e:
             # Fallback to static examples if token parsing fails
-            layout.label(text="Error loading dynamic values - showing static examples", icon='ERROR')
+            icon_error_fallback = custom_icons.get_icon_id_or_fallback('error')
+            layout.label(text="Error loading dynamic values - showing static examples", **icon_error_fallback)
             layout.separator()
             
             box = layout.box()
-            box.label(text="Static Token Examples", icon='FILE_FOLDER')
+            icon_file_folder_static = custom_icons.get_icon_id_or_fallback('file_folder')
+            box.label(text="Static Token Examples", **icon_file_folder_static)
             
             static_examples = [
                 ('workdir', 'Current Blender file directory', 'C:/Projects/MyProject'),
@@ -1400,10 +1407,11 @@ class OT_Token_Help(bpy.types.Operator):
                 ('time', 'Current time', '14-30-45'),
             ]
             
+            icon_dot_static = custom_icons.get_icon_id_or_fallback('dot')
             for token, desc, example in static_examples:
                 row = box.row()
                 split = row.split(factor=0.15)
-                split.label(text=f"{{{token}}}", icon='DOT')
+                split.label(text=f"{{{token}}}", **icon_dot_static)
                 split = split.split(factor=0.55)
                 split.label(text=desc)
                 split.label(text=f"→ {example}")
@@ -1461,26 +1469,28 @@ class OT_Preview_Paths(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         
-        layout.label(text="Path Preview", icon='PREVIEW_RANGE')
+        icon_preview = custom_icons.get_icon_id_or_fallback('preview_range')
+        layout.label(text="Path Preview", **icon_preview)
         layout.separator()
         
         # Core passes
         box = layout.box()
-        box.label(text="Core Passes:", icon='FILE_FOLDER')
+        icon_file_folder_preview = custom_icons.get_icon_id_or_fallback('file_folder')
+        box.label(text="Core Passes:", **icon_file_folder_preview)
         row = box.row()
         row.scale_y = 0.8
         row.label(text=self.core_path)
         
         # AOV passes
         box = layout.box()
-        box.label(text="AOV Passes:", icon='FILE_FOLDER')
+        box.label(text="AOV Passes:", **icon_file_folder_preview)
         row = box.row()
         row.scale_y = 0.8
         row.label(text=self.aov_path)
         
         # Data passes
         box = layout.box()
-        box.label(text="Data Passes:", icon='FILE_FOLDER')
+        box.label(text="Data Passes:", **icon_file_folder_preview)
         row = box.row()
         row.scale_y = 0.8
         row.label(text=self.data_path)
@@ -1841,7 +1851,8 @@ class SHOTPUT_MT_PresetMenu(bpy.types.Menu):
         env_path = os.environ.get('SHOTPUT_PRESET_PATH')
         
         if not env_path:
-            layout.label(text="SHOTPUT_PRESET_PATH not set", icon='ERROR')
+            icon_error_preset = custom_icons.get_icon_id_or_fallback('error')
+            layout.label(text="SHOTPUT_PRESET_PATH not set", **icon_error_preset)
             return
         
         preset_path = Path(env_path)
@@ -1852,7 +1863,8 @@ class SHOTPUT_MT_PresetMenu(bpy.types.Menu):
             preset_path = preset_path.parent
         
         if not preset_path.exists() or not preset_path.is_dir():
-            layout.label(text="Invalid preset path", icon='ERROR')
+            icon_error_invalid_preset = custom_icons.get_icon_id_or_fallback('error')
+            layout.label(text="Invalid preset path", **icon_error_invalid_preset)
             layout.label(text=str(preset_path))
             return
         
@@ -1860,15 +1872,17 @@ class SHOTPUT_MT_PresetMenu(bpy.types.Menu):
         json_files = sorted(preset_path.glob('*.json'))
         
         if not json_files:
-            layout.label(text="No preset files found", icon='INFO')
+            icon_info_preset = custom_icons.get_icon_id_or_fallback('info')
+            layout.label(text="No preset files found", **icon_info_preset)
             layout.label(text=f"in {preset_path.name}")
             return
         
         # Add operators for each preset file
+        icon_preset_menu_preset = custom_icons.get_icon_id_or_fallback('preset')
         for json_file in json_files:
             op = layout.operator("shotput.load_preset_from_env", 
                                text=json_file.stem, 
-                               icon='PRESET')
+                               **icon_preset_menu_preset)
             op.preset_file = json_file.name
 
 
