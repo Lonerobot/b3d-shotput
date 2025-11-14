@@ -918,13 +918,13 @@ class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
 class SHOTPUT_UL_CorePasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # Use custom icon if available, otherwise fallback to built-in
-        icon_params = custom_icons.get_icon_id_or_fallback('core')
+        icon_params = custom_icons.get_icon_id_or_fallback('renderlayers')
         layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 class SHOTPUT_UL_AOVPasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # Use custom icon if available, otherwise fallback to built-in
-        icon_params = custom_icons.get_icon_id_or_fallback('aov')
+        icon_params = custom_icons.get_icon_id_or_fallback('renderlayers')
         layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 # UIList for stored passes on File Output nodes
