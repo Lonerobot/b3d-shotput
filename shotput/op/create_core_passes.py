@@ -579,8 +579,8 @@ class OT_Create_Core_Passes(bpy.types.Operator):
     def _create_composite_node(self, context, tree, shotput_props, token_parser, core_node):
         """Create a Shotput Composite node (actual Blender Composite node for main output)"""
         
-        # Create node label: output_layer.composite.variant
-        node_label = f"{shotput_props.output_layer}.composite.{shotput_props.variant}"
+        # Create node label using core node properties: output_layer.composite.variant
+        node_label = f"{core_node.shotput_data.output_layer}.composite.{core_node.shotput_data.variant}"
         
         # Create Composite node (not File Output) - this routes to main render output
         composite_node = tree.nodes.new(type='CompositorNodeComposite')
@@ -638,10 +638,10 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         from .. import bl_info
         comp_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
-        # Copy scene properties to composite node
-        comp_props.output_layer = shotput_props.output_layer
-        comp_props.variant = shotput_props.variant
-        comp_props.file_name_token = shotput_props.file_name_token
+        # Copy properties from core node (not scene properties)
+        comp_props.output_layer = core_node.shotput_data.output_layer
+        comp_props.variant = core_node.shotput_data.variant
+        comp_props.file_name_token = core_node.shotput_data.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
         
         # CRITICAL: Inherit version from core node
@@ -788,12 +788,12 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
     def _create_standalone_composite_node(self, context, tree, source_props, linked_node=None):
         """Create a Shotput Composite node with properties from source"""
         
-        # Get render layer and variant from source
-        render_layer = getattr(source_props, 'render_layer', 'RenderLayer')
+        # Get output_layer and variant from source
+        output_layer = getattr(source_props, 'output_layer', 'ViewLayer')
         variant = getattr(source_props, 'variant', 'Main')
         
-        # Create node label: render_layer.composite.variant
-        node_label = f"{render_layer}.composite.{variant}"
+        # Create node label: output_layer.composite.variant
+        node_label = f"{output_layer}.composite.{variant}"
         
         # Create Composite node (not File Output) - this routes to main render output
         composite_node = tree.nodes.new(type='CompositorNodeComposite')
@@ -869,7 +869,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.shotput_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
         
         # Copy properties from source
-        comp_props.output_layer = render_layer
+        comp_props.output_layer = output_layer
         comp_props.variant = variant
         comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         comp_props.pass_name = "composite"  # Set pass name to "composite"
