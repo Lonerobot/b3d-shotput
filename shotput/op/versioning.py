@@ -1619,6 +1619,7 @@ class OT_Save_Preset(bpy.types.Operator):
         try:
             import json
             from pathlib import Path
+            from .. import __version__
             
             scene = context.scene
             if not hasattr(scene, 'shotput'):
@@ -1630,6 +1631,7 @@ class OT_Save_Preset(bpy.types.Operator):
             # Build preset data structure
             preset_data = {
                 "_info": f"Shotput preset created from Blender scene: {scene.name}",
+                "bl_version": __version__,
                 "core_passes": [item.name for item in props.core_passes],
                 "aovs": [item.name for item in props.aov_passes],
                 "data_passes": [],

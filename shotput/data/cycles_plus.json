@@ -1,5 +1,6 @@
 {
   "_info": "Shotput preset created from Blender scene: CYCLES",
+  "bl_version": "1.1.1",
   "core_passes": [
     "Beauty",
     "Shadow",
