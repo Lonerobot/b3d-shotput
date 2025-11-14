@@ -7,6 +7,7 @@ from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
 from ..utils.defaults import get_file_format_for_pass_type, load_default_passes, initialize_default_passes
 from ..utils import custom_icons
+from .. import __version__
 
 logger = LoggerFactory.logger_obj()
 
@@ -1619,7 +1620,6 @@ class OT_Save_Preset(bpy.types.Operator):
         try:
             import json
             from pathlib import Path
-            from .. import __version__
             
             scene = context.scene
             if not hasattr(scene, 'shotput'):
