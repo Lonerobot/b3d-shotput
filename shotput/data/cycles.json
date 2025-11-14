@@ -1,5 +1,6 @@
 {
   "_info": "Comprehensive Cycles preset with all core and AOV passes for testing render layer mappings",
+  "bl_version": "1.1.1",
   "_description": "This preset includes all non-data passes that have mappings in Blender's Cycles engine",
   "_engine": "CYCLES",
   "_version": "Blender 4.5+",

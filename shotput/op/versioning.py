@@ -7,6 +7,7 @@ from ..utils.token_parser import TokenParser
 from ..utils.version_utils import VersionUtils
 from ..utils.defaults import get_file_format_for_pass_type, load_default_passes, initialize_default_passes
 from ..utils import custom_icons
+from .. import __version__
 
 logger = LoggerFactory.logger_obj()
 
@@ -1630,6 +1631,7 @@ class OT_Save_Preset(bpy.types.Operator):
             # Build preset data structure
             preset_data = {
                 "_info": f"Shotput preset created from Blender scene: {scene.name}",
+                "bl_version": __version__,
                 "core_passes": [item.name for item in props.core_passes],
                 "aovs": [item.name for item in props.aov_passes],
                 "data_passes": [],

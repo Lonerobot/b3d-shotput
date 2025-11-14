@@ -1,5 +1,6 @@
 {
   "_info": "Complete Shotput preset with all configurable properties",
+  "bl_version": "1.1.1",
   "core_passes": ["Beauty", "Diffuse", "Specular", "Reflection"],
   "aovs": ["AO", "Shadow", "Fresnel", "Roughness"],
   "data_passes": [
