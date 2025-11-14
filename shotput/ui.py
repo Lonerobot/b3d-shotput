@@ -967,20 +967,22 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Scene Properties Box - Output Layer and Variant
         box = layout.box()
         icon_scene = custom_icons.get_icon_id_or_fallback('scene_data')
-        box.label(text="Scene Properties", **icon_scene)
+        box.label(text="Output Node Properties", **icon_scene)
         box.prop(shotput, "output_layer", text="Output Layer")
         box.prop(shotput, "variant", text="Variant")
 
         # Update Version - larger button
-        row = layout.row()
-        row.scale_y = 1.5
-        icon_refresh = custom_icons.get_icon_id_or_fallback('file_refresh')
-        row.operator("shotput.update_version", text="Update Version", **icon_refresh)
+        
+        # v1.1.2 seeing if removing these in favour of the menu update is better UX
+        # row = layout.row()
+        # row.scale_y = 1.5
+        # icon_refresh = custom_icons.get_icon_id_or_fallback('file_refresh')
+        # row.operator("shotput.update_version", text="Update Version", **icon_refresh)
 
-        # Open Output Folder
-        row = layout.row()
-        icon_folder = custom_icons.get_icon_id_or_fallback('folder_redirect')
-        row.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder)
+        # # Open Output Folder
+        # row = layout.row()
+        # icon_folder = custom_icons.get_icon_id_or_fallback('folder_redirect')
+        # row.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder)
        
         box = layout.box()
         icon_nodetree = custom_icons.get_icon_id_or_fallback('nodetree')
