@@ -31,6 +31,20 @@ The TokenParser class provides 16+ dynamic tokens for flexible path construction
 - `{blendfile}` - Current blend file name
 - `{scenename}` - Active scene name
 
+### 🔗 AYON Pipeline Integration (NEW in v1.1.4)
+Shotput automatically detects AYON environments and applies AYON-specific output path conventions:
+
+- **Automatic AYON Detection**: Detects `AYON_PROJECT_NAME` and `AYON_WORKDIR` environment variables
+- **AYON Token Patterns**: Simplified tokens without versioning (AYON handles versioning)
+- **Per-Node Override**: Enable/disable AYON behavior per node with `use_ayon_output_style` property
+- **Configurable Patterns**: Customize AYON tokens in preferences for your studio pipeline
+
+**Default AYON Patterns:**
+- File Output: `{workdir}/{subpath}/{blendfile}` / `{outputlayer}_{passname}_{variant}`
+- Composite: `{workdir}/{subpath}/{blendfile}` / `/tmp/tmp`
+
+See [AYON_INTEGRATION.md](AYON_INTEGRATION.md) for complete documentation.
+
 ### 🎨 Smart File Format Override System
 Intelligent format selection based on pass type and user preferences:
 
@@ -304,13 +318,34 @@ Shotput is designed to integrate with:
 5. **Test linked paths** using the preview functionality before rendering
 6. **Organize complex projects** with multiple linking levels for deep folder structures
 
+### AYON Pipeline Workflow
+1. **Open Blender in AYON context** - Environment variables are set automatically by AYON
+2. **Check AYON status** in Shotput panel header - Shows "AYON Enabled" when detected
+3. **Create nodes normally** - AYON-specific tokens are applied automatically
+4. **Verify paths** in preferences - AYON section shows active project
+5. **Override per node** if needed - Disable "Use AYON Output Style" for exceptions
+6. See [AYON_INTEGRATION.md](AYON_INTEGRATION.md) for detailed AYON workflow guide
+
 ### UI Organization
 1. **Use collapsible panels** to focus on relevant sections during different workflow stages
 2. **Color-coded icons** help quickly identify pass types in complex node trees
 3. **Toggle controls** provide quick access to common boolean settings
 4. **Advanced sections** can be collapsed to maintain clean interface for basic operations
 
-## Recent Updates (v1.1.0)
+## Recent Updates (v1.1.4)
+
+### 🌐 AYON Pipeline Integration (NEW)
+- **Automatic AYON detection** via environment variables (`AYON_PROJECT_NAME`, `AYON_WORKDIR`)
+- **AYON-specific token patterns** in preferences for file output and composite nodes
+- **Per-node AYON override** with `use_ayon_output_style` boolean property
+- **Simplified token patterns** without versioning (AYON manages versions via workfiles)
+- **Preferences UI section** showing AYON status and configurable token patterns
+- **Complete integration** across all node creation operators (core, AOV, data, composite)
+- See [AYON_INTEGRATION.md](AYON_INTEGRATION.md) for complete documentation
+
+---
+
+## Previous Updates (v1.1.0)
 
 ### 🎯 Output Layer Refactoring (BREAKING for API users)
 - **Renamed property**: `render_layer` → `output_layer` throughout codebase to avoid semantic conflict with Blender's built-in render layers

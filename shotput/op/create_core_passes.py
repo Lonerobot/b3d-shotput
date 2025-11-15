@@ -186,6 +186,11 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
         
+        # Apply AYON tokens if AYON is detected
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node
+        if apply_ayon_tokens_to_node(file_output, node_props, is_composite=False):
+            print("Shotput: Applied AYON-specific output tokens to core node")
+        
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
         
@@ -644,6 +649,11 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.file_name_token = core_node.shotput_data.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
         
+        # Apply AYON tokens if AYON is detected (BEFORE path linking setup)
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node
+        if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
+            print("Shotput: Applied AYON-specific output tokens to composite node")
+        
         # CRITICAL: Inherit version from core node
         # This ensures composite nodes start with the same version as their parent
         if core_node and hasattr(core_node, 'shotput_data'):
@@ -873,6 +883,11 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.variant = variant
         comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         comp_props.pass_name = "composite"  # Set pass name to "composite"
+        
+        # Apply AYON tokens if AYON is detected (BEFORE path linking setup)
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node
+        if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
+            print("Shotput: Applied AYON-specific output tokens to standalone composite node")
         
         # CRITICAL: Inherit version from linked node or source
         # This ensures composite nodes start with the same version as their parent

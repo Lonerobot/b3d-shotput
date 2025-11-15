@@ -154,6 +154,11 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
         
+        # Apply AYON tokens if AYON is detected
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node
+        if apply_ayon_tokens_to_node(file_output, node_props, is_composite=False):
+            print("Shotput: Applied AYON-specific output tokens to AOV node")
+        
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
         
