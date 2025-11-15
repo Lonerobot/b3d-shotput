@@ -62,6 +62,19 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         default='OPEN_EXR_MULTILAYER'
     )
     
+    # Default output token preferences (normal mode)
+    default_root_folder_token: bpy.props.StringProperty(
+        name="Default Root Folder Token",
+        description="Default root folder token pattern for file output nodes in normal mode",
+        default="{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}"
+    )
+    
+    default_file_name_token: bpy.props.StringProperty(
+        name="Default File Name Token",
+        description="Default file name token pattern for file output nodes in normal mode",
+        default="{outputlayer}_{passname}_{variant}"
+    )
+    
     # AYON-specific output preferences
     ayon_root_folder_token: bpy.props.StringProperty(
         name="AYON Root Folder Token",
@@ -168,6 +181,19 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         split = col.split(factor=0.5, align=True)
         split.label(text="Data Node Format Override:")
         split.prop(self, "data_node_format_override", text="")
+        
+        # Default Token Settings
+        box = layout.box()
+        box.label(text="Default Output Token Settings", icon="FILE_FOLDER")
+        col = box.column(align=True)
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Default Root Folder Token:")
+        split.prop(self, "default_root_folder_token", text="")
+        
+        split = col.split(factor=0.5, align=True)
+        split.label(text="Default File Name Token:")
+        split.prop(self, "default_file_name_token", text="")
         
         # AYON Settings
         box = layout.box()

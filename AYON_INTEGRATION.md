@@ -47,8 +47,17 @@ This gives you granular control over which nodes follow AYON conventions.
 
 ### Preferences
 
-Navigate to Edit → Preferences → Add-ons → Shotput to configure AYON settings:
+Navigate to Edit → Preferences → Add-ons → Shotput to configure output token settings:
 
+#### Default Output Token Settings (Normal Mode)
+These defaults are used when AYON is NOT detected:
+- **Default Root Folder Token**: `{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}` (default)
+- **Default File Name Token**: `{outputlayer}_{passname}_{variant}` (default)
+
+Customize these to match your studio's standard pipeline structure.
+
+#### AYON Pipeline Settings
+These tokens are used when AYON is detected:
 1. **AYON Pipeline Settings** section shows:
    - Active AYON project indicator (when AYON is detected)
    - AYON Root Folder Token (for file output nodes)
@@ -57,6 +66,19 @@ Navigate to Edit → Preferences → Add-ons → Shotput to configure AYON setti
    - AYON Composite File Token (for composite nodes)
 
 2. Customize these tokens to match your studio's AYON pipeline structure
+
+### Token Precedence
+
+Shotput uses the following precedence when determining which tokens to use:
+
+1. **JSON Preset** (via `SHOTPUT_PRESET_PATH` environment variable) - **Highest Priority**
+   - If a valid JSON preset is found, tokens from the preset override everything
+   
+2. **Addon Preferences** - **Middle Priority**
+   - If no JSON preset, uses preferences (Default tokens for normal mode, AYON tokens for AYON mode)
+   
+3. **Hardcoded Defaults** - **Lowest Priority** (Fallback)
+   - Only used if preferences can't be accessed
 
 ### Default Token Patterns
 
