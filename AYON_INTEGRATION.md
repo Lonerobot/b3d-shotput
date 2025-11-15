@@ -1,6 +1,6 @@
 # AYON Pipeline Integration
 
-This document describes the AYON-specific output node functionality added in version 1.2.0.
+This document describes the AYON-specific output node functionality added in version 1.1.4.
 
 ## Overview
 

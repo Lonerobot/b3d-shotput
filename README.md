@@ -31,7 +31,7 @@ The TokenParser class provides 16+ dynamic tokens for flexible path construction
 - `{blendfile}` - Current blend file name
 - `{scenename}` - Active scene name
 
-### 🔗 AYON Pipeline Integration (NEW in v1.2.0)
+### 🔗 AYON Pipeline Integration (NEW in v1.1.4)
 Shotput automatically detects AYON environments and applies AYON-specific output path conventions:
 
 - **Automatic AYON Detection**: Detects `AYON_PROJECT_NAME` and `AYON_WORKDIR` environment variables
@@ -332,7 +332,7 @@ Shotput is designed to integrate with:
 3. **Toggle controls** provide quick access to common boolean settings
 4. **Advanced sections** can be collapsed to maintain clean interface for basic operations
 
-## Recent Updates (v1.2.0)
+## Recent Updates (v1.1.4)
 
 ### 🌐 AYON Pipeline Integration (NEW)
 - **Automatic AYON detection** via environment variables (`AYON_PROJECT_NAME`, `AYON_WORKDIR`)
