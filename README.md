@@ -9,7 +9,7 @@ Shotput is a Blender addon for managing file output nodes with token-based path 
 
 ## Workflow
 
-Shotput lives in the Compostor workspace, andhas a main interface, and a quick compositor menu. These are designed for different stages of your render workflow:
+Shotput lives in the Compostor workspace, and has a main interface, and a quick compositor menu. These are designed for different stages of your render workflow:
 
 ### Main UI Panel (Sidebar)
 
