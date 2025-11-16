@@ -1,4 +1,4 @@
-# Shotput Addon - System Documentation
+# Shotput - User Documentation
 
 ![Blender](https://img.shields.io/badge/blender-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
@@ -6,6 +6,31 @@
 ## Overview
 
 Shotput is a Blender addon for managing file output nodes with token-based path resolution, smart versioning, and intelligent file format handling. It works standalone or integrates seamlessly with AYON pipeline for production environments.
+
+## Workflow
+
+Shotput lives in the Compostor workspace, andhas a main interface, and a quick compositor menu. These are designed for different stages of your render workflow:
+
+### Main UI Panel (Sidebar)
+
+Located in the Compositor workspace sidebar under the "Shotput" tab. This is where you **create and configure** your output nodes:
+
+- Set up pass lists (Core, AOV, Data)
+- Configure path tokens and output formats
+- Create file output nodes with one click
+- Load and save presets
+
+Use this panel when you're first setting up your render outputs or making major changes to your node structure.
+
+### Compositor Menu (Header)
+
+Located in the Compositor workspace header menu. This is for **ongoing management** once nodes are created:
+
+- **Update Version** - Increment version numbers across all Shotput nodes (or just the selected ones)
+- **Open Output Folder** - Quickly access your current render output directory
+- **Build Render Layers from View** - Operator to Auto-create render layer nodes based on the Viewlayers present in the scene.
+
+**Once your nodes are set up, you won't need to open the main UI panel anymore** - just use the compositor menu for version updates and quick actions.
 
 ## Core Features
 
@@ -28,7 +53,7 @@ The TokenParser class provides 16+ dynamic tokens for flexible path construction
 
 **Path Tokens:**
 
-- `{workdir}` - Working directory. This is set from the blendfile's save location, or the AYON pipeline context (of present)
+- `{workdir}` - Working directory. This is set from the blendfile's save location, or the AYON pipeline context (if present)
 - `{subpath}` - Subfolder structure for organization. Useful to provide a sub path of any length or hierarchy for the renders to go.
 
 e.g. you might want `renders/previz` added to the output path
@@ -54,15 +79,15 @@ Blender's compositor is its superpower - you can combine multiple scenes, render
 - `{blendfile}` - Current blend file name
 - `{scenename}` - Active scene name
 
-### 🎨 Smart File Format Override System
+### 🎨 File Format Logic
 
 Format selection based on pass type and user preferences:
 
 - **Core Passes**: Respect UI format setting (PNG, JPEG, EXR, etc.)
 - **AOV Passes**: Respect UI format setting for flexibility
-- **Data Passes**: Always forced to OPEN_EXR_MULTILAYER with 32-bit precision
+- **Data Passes**: Always forced to OPEN_EXR_MULTILAYER with 32-bit precision (This can be changed in the Addon preferences)
 
-### 📁 Automated Version Management
+### 📁 Automatic Version Management
 
 - Next version calculation without creating directories
 - Preview path resolution before execution
@@ -88,307 +113,98 @@ Organize complex outputs by linking child nodes to parent folders:
 
 **Data Passes** - Technical data (Z-depth, normals, cryptomatte) always saved as EXR Multilayer for precision
 
+Sometimes it helps to have separate pass types to make it clear what they're used for. This might sound straightforward with pass names, but if you're using multichannel EXRs, this won't be visible until opened.
+
+It can also avoid having numerous channels in a single EXR that may or may not be used in compositing.
+
+With Blender's shader AOVs, the output potential is almost limitless - hence why the AOV category exists purely for visual and filesystem organization.
+
+**Do you need to use the AOV Type?**
+
+Certainly not. There are only small differences in the functionality of the core and AOV nodes, so they can function the same. AOV nodes have access to additional operators - like being able to import the Shader AOVs from the view layer.
+
 ## File Structure
 
 ```
-
 addons/shotput/
-
 ├── __init__.py              # Addon registration and metadata
-
-├── [preferences.py](http://preferences.py/)           # Addon preferences and settings
-
-├── [properties.py](http://properties.py/)           # Custom property definitions and path linking
-
-├── [ui.py](http://ui.py/)                   # User interface panels, operators, and path controls
-
+├── preferences.py           # Addon preferences with AYON settings
+├── properties.py            # Node and scene property definitions
+├── ui.py                    # User interface panels and operators
+├── blender_manifest.toml    # Blender 4.2+ extension manifest
+├── assets/                  # Icons and visual resources
 ├── data/
-
-│   └── passes.json         # Pass definitions and format overrides
-
-├── op/                     # Operators for addon functionality
-
-│   ├── create_core_passes.py  # Enhanced with composite node linking
-
+│   ├── passes.json          # Pass definitions
+│   ├── cycles.json          # Cycles render engine passes
+│   ├── cycles_plus.json     # Extended Cycles passes
+│   └── eevee.json           # Eevee render engine passes
+├── op/                      # Operators
+│   ├── create_core_passes.py
 │   ├── create_aov_passes.py
-
 │   ├── create_data_passes.py
-
-│   ├── [versioning.py](http://versioning.py/)       # Version management with path linking support
-
-│   ├── lazy_hookup.py      # Node connection utilities
-
+│   ├── versioning.py        # Version management
+│   ├── lazy_hookup.py       # Auto-connection utilities
+│   ├── scan_shader_aovs.py  # Shader AOV detection
 │   └── open_output_folder.py
-
-└── utils/                  # Utility modules
-
-    ├── token_parser.py     # Core token resolution with linked path support
-
-    ├── [defaults.py](http://defaults.py/)         # Configuration loading and format logic
-
-    ├── version_utils.py    # Version calculation utilities
-
-    ├── path_utils.py       # Path manipulation helpers
-
-    ├── output_utils.py     # Output node management
-
-    └── [log.py](http://log.py/)             # Logging system
-
+└── utils/                   # Utility modules
+    ├── ayon_utils.py        # AYON pipeline integration
+    ├── token_parser.py      # Token resolution engine
+    ├── defaults.py          # Configuration and format logic
+    ├── version_utils.py     # Version calculation
+    ├── path_utils.py        # Path manipulation
+    ├── color_utils.py       # Node color management
+    ├── custom_icons.py      # Icon loading system
+    ├── pass_mapping.py      # Pass type mapping
+    └── log.py               # Logging system
 ```
 
-## Usage Examples
+## Preset Configuration
 
-### Path Linking Examples
-
-```python
-
-# Parent node (Core passes)
-
-core_node.base_path = "/project/renders/seq010/shot020/beauty/v003"
-
-
-# Child node with path linking enabled
-
-aov_node.path_linked = True
-
-aov_node.linked_node = "Shotput_Core_beauty"
-
-aov_node.root_folder_token = "aov"  # Append path
-
-# Resolved: "/project/renders/seq010/shot020/beauty/v003/aov"
-
-
-# Composite node automatically linked to core
-
-composite_node.path_linked = True
-
-composite_node.linked_node = "Shotput_Core_beauty"
-
-composite_node.root_folder_token = "composite"
-
-# Resolved: "/project/renders/seq010/shot020/beauty/v003/composite"
-
-```
-
-### Path Token Examples
-
-```python
-
-# Feature film shot structure
-
-"{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}"
-
-# Result: Z:/projects/film/seq010/shot020/Beauty_diffuse_v001/008
-
-
-# Commercial project structure  
-
-"{project}_{task}_{blendfile}_{passname}_{frame}"
-
-# Result: ClientABC_comp_spot_final_beauty_0001
-
-
-# Data pass with versioning
-
-"{workdir}/data/{version}/{passname}_{frame}.exr"
-
-# Result: C:/project/data/003/depth_1024.exr
-
-```
-
-### Format Override Behavior
-
-```python
-
-# UI Format: PNG
-
-create_core_passes()    # → PNG files (respects UI)
-
-create_aov_passes()     # → PNG files (respects UI)  
-
-create_data_passes()    # → EXR Multilayer files (forced override)
-
-
-# UI Format: JPEG
-
-create_core_passes()    # → JPEG files (respects UI)
-
-create_aov_passes()     # → JPEG files (respects UI)
-
-create_data_passes()    # → EXR Multilayer files (forced override)
-
-```
-
-## Configuration (passes.json)
+Presets are JSON files that define pass configurations and organizational settings. Load presets from the main UI to quickly set up your render output structure.
 
 ```json
-
 {
-
+  "_info": "Complete Shotput preset with all configurable properties",
+  "bl_version": "1.2.1",
   "core_passes": ["Beauty", "Diffuse", "Specular", "Reflection"],
-
   "aovs": ["AO", "Shadow", "Fresnel", "Roughness"],
-
-  "data_passes": ["z", "mist", "normal", "vector", "crypto_object"],
-
-  "file_format_overrides": {
-
-    "core": "UI",
-
-    "aov": "UI", 
-
-    "data": "OPEN_EXR_MULTILAYER"
-
+  "data_passes": {
+    "z": true,
+    "mist": false,
+    "normal": true,
+    "vector": true,
+    "position": false,
+    "occlusion": false,
+    "crypto_object": false,
+    "crypto_material": false,
+    "crypto_asset": false
   },
-
-  "data_format_settings": {
-
-    "color_depth": "32",
-
-    "exr_codec": "ZIP"
-
-  },
-
-  "path_linking_settings": {
-
-    "enable_automatic_linking": true,
-
-    "composite_auto_link": true,
-
-    "backup_original_tokens": true
-
-  },
-
+  "output_layer": "ViewLayer",
+  "variant": "MAIN",
+  "core_override": "Core",
+  "aov_override": "AOV",
   "root_folder_token": "{workdir}/{subpath}/{outputlayer}_{passname}_{variant}/{version}",
-
-  "file_name_token": "{outputlayer}_{passname}_{variant}"
-
+  "file_name_token": "{outputlayer}_{passname}_{variant}",
+  "default_file_format": "OPEN_EXR",
+  "file_format_overrides": {
+    "core": "UI",
+    "aov": "UI",
+    "data": "OPEN_EXR_MULTILAYER"
+  },
+  "data_format_settings": {
+    "color_depth": "32",
+    "exr_codec": "ZIP"
+  },
+  "create_composite_from_core": false,
+  "expand_core_ui": false,
+  "expand_aov_ui": false,
+  "expand_data_ui": false
 }
-
 ```
-
-## API Integration
-
-### Path Linking API
-
-```python
-
-from shotput.properties import ShotputFileOutputProperties
-
-
-# Enable path linking programmatically
-
-node_props = file_output_node.shotput_data
-
-node_props.path_linked = True
-
-node_props.linked_node = "Shotput_Core_beauty"
-
-node_props.root_folder_token = "subfolder"
-
-
-# Access linked node properties
-
-linked_node = node_props.node  # Returns actual linked File Output node
-
-if linked_node:
-
-    base_path = linked_node.base_path
-
-```
-
-### TokenParser Class
-
-```python
-
-from utils.token_parser import TokenParser
-
-
-parser = TokenParser()
-
-
-# Standard token parsing
-
-resolved_path = parser.resolve_full_output_path(
-
-    folder_pattern="{workdir}/{subpath}",
-
-    filename_pattern="{passname}_{frame}",
-
-    passname="beauty"
-
-)
-
-
-# Path linking aware parsing
-
-parser = TokenParser(node_properties)
-
-if parser._is_path_linked():
-
-    # Uses linked node's base path + append path
-
-    linked_path = parser._parse_linked_path("{passname}")
-
-else:
-
-    # Uses normal token resolution
-
-    normal_path = parser._parse_normal_path("{workdir}/{passname}")
-
-```
-
-### Version Management
-
-```python
-
-from utils.version_utils import VersionUtils
-
-
-version_utils = VersionUtils()
-
-next_version = version_utils.get_next_version_for_folder(base_path)
-
-```
-
-### Format Override System
-
-```python
-
-from utils.defaults import get_file_format_for_pass_type
-
-
-format_result = get_file_format_for_pass_type("data", "PNG")
-
-# Returns: "OPEN_EXR_MULTILAYER" (override applied)
-
-
-format_result = get_file_format_for_pass_type("core", "PNG")  
-
-# Returns: "PNG" (UI setting respected)
-
-```
-
-## Testing
-
-The addon includes comprehensive test suites:
-
-- `test_comprehensive.py` - Full system integration tests
-- `test_format_standalone.py` - Format override logic validation
-- `test_tokens_standalone.py` - Token parsing verification
-- `test_format_overrides.py` - Blender-integrated format tests
-
-All tests validate:
-
-✅ Configuration loading and validation
-
-✅ Token parsing with edge case handling
-
-✅ File format override logic
-
-✅ Integration scenarios for real-world pipelines
 
 ## Pipeline Integration
+
+All the tokenization logic happens when the nodes are updated - while the tokens exist within custom properties on the node, no part of the output path or filename is "tokenized". This means there is nothing incompatible about the file's output, nor is it tied to the addon in that regard. This means it should be 100% compatible with render farms. It also means you could share a file that was set up with this addon with a user that doesn't have it - it would remove the ability to update automatically, but it wouldn't break anything.
 
 Shotput works with:
 
