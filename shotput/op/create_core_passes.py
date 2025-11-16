@@ -182,14 +182,20 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Copy scene properties to node
         node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
-        node_props.root_folder_token = shotput_props.root_folder_token
-        node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
         
-        # Apply AYON tokens if AYON is detected
+        # Store UI tokens as normal mode backups BEFORE applying AYON tokens
+        node_props.normal_root_folder_token = shotput_props.root_folder_token
+        node_props.normal_file_name_token = shotput_props.file_name_token
+        
+        # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
         from ..utils.ayon_utils import apply_ayon_tokens_to_node
         if apply_ayon_tokens_to_node(file_output, node_props, is_composite=False):
             print("Shotput: Applied AYON-specific output tokens to core node")
+        else:
+            # No AYON detected, use normal tokens from UI
+            node_props.root_folder_token = shotput_props.root_folder_token
+            node_props.file_name_token = shotput_props.file_name_token
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)
@@ -646,13 +652,20 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Copy properties from core node (not scene properties)
         comp_props.output_layer = core_node.shotput_data.output_layer
         comp_props.variant = core_node.shotput_data.variant
-        comp_props.file_name_token = core_node.shotput_data.file_name_token
         comp_props.pass_name = "composite"  # Set pass name to "composite"
         
-        # Apply AYON tokens if AYON is detected (BEFORE path linking setup)
+        # Store normal mode backups from core node BEFORE applying AYON tokens
+        comp_props.normal_root_folder_token = core_node.shotput_data.root_folder_token
+        comp_props.normal_file_name_token = core_node.shotput_data.file_name_token
+        
+        # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
         from ..utils.ayon_utils import apply_ayon_tokens_to_node
         if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
             print("Shotput: Applied AYON-specific output tokens to composite node")
+        else:
+            # No AYON detected, use tokens from core node
+            comp_props.root_folder_token = core_node.shotput_data.root_folder_token
+            comp_props.file_name_token = core_node.shotput_data.file_name_token
         
         # CRITICAL: Inherit version from core node
         # This ensures composite nodes start with the same version as their parent
@@ -881,13 +894,20 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         # Copy properties from source
         comp_props.output_layer = output_layer
         comp_props.variant = variant
-        comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         comp_props.pass_name = "composite"  # Set pass name to "composite"
         
-        # Apply AYON tokens if AYON is detected (BEFORE path linking setup)
+        # Store normal mode backups from source BEFORE applying AYON tokens
+        comp_props.normal_root_folder_token = getattr(source_props, 'root_folder_token', '')
+        comp_props.normal_file_name_token = getattr(source_props, 'file_name_token', '')
+        
+        # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
         from ..utils.ayon_utils import apply_ayon_tokens_to_node
         if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
             print("Shotput: Applied AYON-specific output tokens to standalone composite node")
+        else:
+            # No AYON detected, use tokens from source
+            comp_props.root_folder_token = getattr(source_props, 'root_folder_token', '')
+            comp_props.file_name_token = getattr(source_props, 'file_name_token', '')
         
         # CRITICAL: Inherit version from linked node or source
         # This ensures composite nodes start with the same version as their parent

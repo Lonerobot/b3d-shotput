@@ -150,14 +150,20 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Copy scene properties to node
         node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
-        node_props.root_folder_token = shotput_props.root_folder_token
-        node_props.file_name_token = shotput_props.file_name_token
         node_props.pass_name = area_name  # Use area name as pass name
         
-        # Apply AYON tokens if AYON is detected
+        # Store UI tokens as normal mode backups BEFORE applying AYON tokens
+        node_props.normal_root_folder_token = shotput_props.root_folder_token
+        node_props.normal_file_name_token = shotput_props.file_name_token
+        
+        # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
         from ..utils.ayon_utils import apply_ayon_tokens_to_node
         if apply_ayon_tokens_to_node(file_output, node_props, is_composite=False):
             print("Shotput: Applied AYON-specific output tokens to AOV node")
+        else:
+            # No AYON detected, use normal tokens from UI
+            node_props.root_folder_token = shotput_props.root_folder_token
+            node_props.file_name_token = shotput_props.file_name_token
         
         # Initialize token parser with node properties
         token_parser = TokenParser(node_props)

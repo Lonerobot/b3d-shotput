@@ -111,13 +111,7 @@ def apply_ayon_tokens_to_node(node, node_properties, is_composite=False):
     # Get AYON tokens from preferences
     root_token, file_token = get_ayon_tokens(is_composite)
     
-    # Backup current tokens as "normal" tokens before applying AYON tokens
-    if node_properties.root_folder_token and not node_properties.normal_root_folder_token:
-        node_properties.normal_root_folder_token = node_properties.root_folder_token
-    if node_properties.file_name_token and not node_properties.normal_file_name_token:
-        node_properties.normal_file_name_token = node_properties.file_name_token
-    
-    # Apply AYON tokens
+    # Apply AYON tokens (normal tokens should already be backed up by calling operator)
     node_properties.root_folder_token = root_token
     node_properties.file_name_token = file_token
     

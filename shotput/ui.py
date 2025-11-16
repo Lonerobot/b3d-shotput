@@ -13,8 +13,9 @@ def get_panel_title():
     base_title = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}-{__release_stage__}"
     
     # Check if AYON environment is present
-    if os.getenv("AYON_PROJECT_NAME"):
-        return f"{base_title} - AYON Enabled"
+    ayon_project = os.getenv("AYON_PROJECT_NAME")
+    if ayon_project:
+        return f"{base_title} - AYON Enabled [{ayon_project}]"
     
     return base_title
 
@@ -1273,20 +1274,27 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         icon_file_folder_path = custom_icons.get_icon_id_or_fallback('file_folder')
         box.label(text="Path Configuration", **icon_file_folder_path)
         
-        # Path linking controls
-        row = box.row()
-        if shotput_data.path_linked:
-            icon_linked = custom_icons.get_icon_id_or_fallback('linked')
-            row.operator("shotput.toggle_path_linking", 
-                        text="Path Linked", 
-                        depress=True,
-                        **icon_linked)
+        # Path linking controls - disabled in AYON mode
+        if ayon_detected and shotput_data.use_ayon_output_style:
+            # AYON mode active - path linking not available
+            row = box.row()
+            row.enabled = False
+            row.label(text="Path Linking unavailable in AYON mode", icon='INFO')
         else:
-            icon_unlinked = custom_icons.get_icon_id_or_fallback('unlinked')
-            row.operator("shotput.toggle_path_linking", 
-                        text="Enable Path Linking", 
-                        depress=False,
-                        **icon_unlinked)
+            # Normal mode - show path linking controls
+            row = box.row()
+            if shotput_data.path_linked:
+                icon_linked = custom_icons.get_icon_id_or_fallback('linked')
+                row.operator("shotput.toggle_path_linking", 
+                            text="Path Linked", 
+                            depress=True,
+                            **icon_linked)
+            else:
+                icon_unlinked = custom_icons.get_icon_id_or_fallback('unlinked')
+                row.operator("shotput.toggle_path_linking", 
+                            text="Enable Path Linking", 
+                            depress=False,
+                            **icon_unlinked)
         
         if shotput_data.path_linked:
             # Show path linking UI
