@@ -333,9 +333,9 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         print(f"Shotput: Base path set to: {file_output.base_path}")
         logger.info(f"Created {mode_desc} core passes file output node '{node_label}' with {pass_count} passes")
         
-        # Create composite node if requested
+        # Create composite node if requested (but not in AYON mode - linking not compatible)
         composite_node = None
-        if shotput_props.create_composite_from_core:
+        if shotput_props.create_composite_from_core and not node_props.use_ayon_output_style:
             composite_node = self._create_composite_node(context, tree, shotput_props, token_parser, file_output)
         
         # Auto-connect nodes if lazy hook-up is enabled
@@ -772,10 +772,18 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
             context.active_node.type == 'OUTPUT_FILE' and 
             hasattr(context.active_node, 'shotput_data')):
             
-            # Use selected File Output node properties
-            linked_node = context.active_node
-            source_props = linked_node.shotput_data
-            print(f"Shotput: Using properties from selected File Output node: {linked_node.name}")
+            # Check if the selected node is in AYON mode - if so, don't link
+            selected_node = context.active_node
+            if selected_node.shotput_data.use_ayon_output_style:
+                # AYON mode active - don't link to this node
+                source_props = shotput_props
+                linked_node = None
+                print(f"Shotput: Selected node {selected_node.name} is in AYON mode - creating standalone composite")
+            else:
+                # Use selected File Output node properties
+                linked_node = selected_node
+                source_props = linked_node.shotput_data
+                print(f"Shotput: Using properties from selected File Output node: {linked_node.name}")
             
         else:
             # Use global UI properties

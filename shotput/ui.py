@@ -10,12 +10,12 @@ logger = LoggerFactory.logger_obj()
 
 def get_panel_title():
     """Generate panel title with AYON status if available"""
-    base_title = f"THE LINE - Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}-{__release_stage__}"
+    base_title = f"Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}-{__release_stage__}"
     
     # Check if AYON environment is present
     ayon_project = os.getenv("AYON_PROJECT_NAME")
     if ayon_project:
-        return f"{base_title} - AYON Enabled [{ayon_project}]"
+        return f"{base_title} - {ayon_project}"
     
     return base_title
 
@@ -1278,8 +1278,8 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         if ayon_detected and shotput_data.use_ayon_output_style:
             # AYON mode active - path linking not available
             row = box.row()
-            row.enabled = False
-            row.label(text="Path Linking unavailable in AYON mode", icon='INFO')
+            row.alert = True
+            row.label(text="Path Linking is not needed in AYON", icon='INFO')
         else:
             # Normal mode - show path linking controls
             row = box.row()
@@ -1330,7 +1330,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             row = box.row(align=True)
             if ayon_detected and shotput_data.use_ayon_output_style:
                 row.enabled = False
-                row.prop(shotput_data, "root_folder_token", text="Root Folder (AYON)")
+                row.prop(shotput_data, "root_folder_token", text="AYON Root Folder")
             else:
                 row.prop(shotput_data, "root_folder_token", text="Root Folder")
                 icon_add_node2 = custom_icons.get_icon_id_or_fallback('add')
@@ -1340,7 +1340,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         row = box.row(align=True)
         if ayon_detected and shotput_data.use_ayon_output_style:
             row.enabled = False
-            row.prop(shotput_data, "file_name_token", text="File Name (AYON)")
+            row.prop(shotput_data, "file_name_token", text="AYON File Name")
         else:
             row.prop(shotput_data, "file_name_token", text="File Name")
             icon_add_node3 = custom_icons.get_icon_id_or_fallback('add')
@@ -1353,11 +1353,13 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         icon_linked_node = custom_icons.get_icon_id_or_fallback('linked')
         row.operator("shotput.lazy_hookup", text="Connect to Render Layer", **icon_linked_node)
         
-        # Create Linked Composite button - only show for File Output nodes
+        # Create Linked Composite button - only show for File Output nodes and when AYON mode is not active
         if node.type == 'OUTPUT_FILE':
-            row = box.row()
-            icon_composite = custom_icons.get_icon_id_or_fallback('composite')
-            row.operator("shotput.create_linked_composite", text="Create Linked Composite Node", **icon_composite)
+            # Don't show if AYON mode is active (path linking not compatible)
+            if not (ayon_detected and shotput_data.use_ayon_output_style):
+                row = box.row()
+                icon_composite = custom_icons.get_icon_id_or_fallback('composite')
+                row.operator("shotput.create_linked_composite", text="Create Linked Composite Node", **icon_composite)
         
         # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
         if node.type == 'OUTPUT_FILE':
