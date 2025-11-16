@@ -94,15 +94,34 @@ def apply_ayon_tokens_to_node(node, node_properties, is_composite=False):
     Returns:
         bool: True if AYON tokens were applied
     """
-    if not should_use_ayon_tokens(node_properties):
+    # Check if AYON context exists
+    if not is_ayon_context():
         return False
     
-    # Get AYON tokens
+    # Enable AYON mode by default when node is created in AYON context
+    if not hasattr(node_properties, 'use_ayon_output_style'):
+        logger.warning("Node properties missing 'use_ayon_output_style' attribute")
+        return False
+    
+    # Check if AYON mode is enabled (defaults to True)
+    if not node_properties.use_ayon_output_style:
+        logger.debug("AYON context detected but node has AYON output style disabled")
+        return False
+    
+    # Get AYON tokens from preferences
     root_token, file_token = get_ayon_tokens(is_composite)
     
-    # Apply to node properties
+    # Backup current tokens as "normal" tokens before applying AYON tokens
+    if node_properties.root_folder_token and not node_properties.normal_root_folder_token:
+        node_properties.normal_root_folder_token = node_properties.root_folder_token
+    if node_properties.file_name_token and not node_properties.normal_file_name_token:
+        node_properties.normal_file_name_token = node_properties.file_name_token
+    
+    # Apply AYON tokens
     node_properties.root_folder_token = root_token
     node_properties.file_name_token = file_token
     
     logger.info(f"Applied AYON tokens to node '{node.name}' (composite={is_composite})")
+    logger.debug(f"  Root token: {root_token}")
+    logger.debug(f"  File token: {file_token}")
     return True

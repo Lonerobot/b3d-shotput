@@ -1253,6 +1253,23 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         box.prop(shotput_data, "pass_name", text="Pass Name")
         box.prop(shotput_data, "variant", text="Variant")
         
+        # AYON Mode Toggle - only show if AYON is detected
+        import os
+        ayon_detected = bool(os.getenv("AYON_PROJECT_NAME"))
+        if ayon_detected:
+            row = box.row()
+            icon_ayon = custom_icons.get_icon_id_or_fallback('ayon')
+            if shotput_data.use_ayon_output_style:
+                row.prop(shotput_data, "use_ayon_output_style", 
+                        text="AYON Mode", 
+                        toggle=True,
+                        icon_value=icon_ayon.get('icon_value', 0) if isinstance(icon_ayon, dict) else 0)
+            else:
+                row.prop(shotput_data, "use_ayon_output_style", 
+                        text="AYON Mode (Off)", 
+                        toggle=True,
+                        icon='CANCEL')
+        
         icon_file_folder_path = custom_icons.get_icon_id_or_fallback('file_folder')
         box.label(text="Path Configuration", **icon_file_folder_path)
         
@@ -1301,16 +1318,25 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             #     row.enabled = False
         else:
             # Normal path configuration with token menu
+            # Make read-only if AYON mode is enabled
             row = box.row(align=True)
-            row.prop(shotput_data, "root_folder_token", text="Root Folder")
-            icon_add_node2 = custom_icons.get_icon_id_or_fallback('add')
-            row.menu("SHOTPUT_MT_token_menu_node_root", text="", **icon_add_node2)
+            if ayon_detected and shotput_data.use_ayon_output_style:
+                row.enabled = False
+                row.prop(shotput_data, "root_folder_token", text="Root Folder (AYON)")
+            else:
+                row.prop(shotput_data, "root_folder_token", text="Root Folder")
+                icon_add_node2 = custom_icons.get_icon_id_or_fallback('add')
+                row.menu("SHOTPUT_MT_token_menu_node_root", text="", **icon_add_node2)
         
-        # File name token is always shown with token menu
+        # File name token - make read-only if AYON mode is enabled
         row = box.row(align=True)
-        row.prop(shotput_data, "file_name_token", text="File Name")
-        icon_add_node3 = custom_icons.get_icon_id_or_fallback('add')
-        row.menu("SHOTPUT_MT_token_menu_node_file", text="", **icon_add_node3)
+        if ayon_detected and shotput_data.use_ayon_output_style:
+            row.enabled = False
+            row.prop(shotput_data, "file_name_token", text="File Name (AYON)")
+        else:
+            row.prop(shotput_data, "file_name_token", text="File Name")
+            icon_add_node3 = custom_icons.get_icon_id_or_fallback('add')
+            row.menu("SHOTPUT_MT_token_menu_node_file", text="", **icon_add_node3)
         
         # Output Folder Actions and Lazy Hook-up in a single row
         row = box.row()

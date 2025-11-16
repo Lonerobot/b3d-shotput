@@ -208,7 +208,8 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         if os.getenv("AYON_PROJECT_NAME"):
             row = col.row()
             row.alert = True
-            row.label(text=f"AYON Active: {os.getenv('AYON_PROJECT_NAME')}", icon="RADIOBUT_ON")
+            # row.label(text=f"AYON Active: {os.getenv('AYON_PROJECT_NAME')}", icon="RADIOBUT_ON")
+            row.label(text=f"AYON Active: {os.getenv('AYON_PROJECT_NAME')}", icon="NODE_SOCKET_GEOMETRY")
         
         split = col.split(factor=0.5, align=True)
         split.label(text="AYON Root Folder Token:")

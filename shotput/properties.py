@@ -48,6 +48,47 @@ def update_linked_node(self, context):
                 if linked_node:
                     apply_path_linked_visual_feedback(node, linked_node)
 
+
+def update_ayon_mode(self, context):
+    """Switch between AYON and normal mode tokens"""
+    import os
+    from . import __package_name__
+    
+    # Only proceed if AYON is actually detected
+    if not os.getenv("AYON_PROJECT_NAME"):
+        return
+    
+    prefs = context.preferences.addons[__package_name__].preferences
+    
+    # Find if this is a composite node
+    node = None
+    scene = context.scene
+    if scene and scene.node_tree:
+        for scene_node in scene.node_tree.nodes:
+            if hasattr(scene_node, 'shotput_data') and scene_node.shotput_data == self:
+                node = scene_node
+                break
+    
+    is_composite = node and node.type == 'COMPOSITE'
+    
+    if self.use_ayon_output_style:
+        # Switching TO AYON mode - backup current tokens and load AYON tokens
+        self.normal_root_folder_token = self.root_folder_token
+        self.normal_file_name_token = self.file_name_token
+        
+        if is_composite:
+            self.root_folder_token = prefs.ayon_composite_root_folder_token
+            self.file_name_token = prefs.ayon_composite_file_name_token
+        else:
+            self.root_folder_token = prefs.ayon_root_folder_token
+            self.file_name_token = prefs.ayon_file_name_token
+    else:
+        # Switching FROM AYON mode - restore normal tokens
+        if self.normal_root_folder_token:
+            self.root_folder_token = self.normal_root_folder_token
+        if self.normal_file_name_token:
+            self.file_name_token = self.normal_file_name_token
+
 def get_file_output_nodes(self, context):
     """Generate enum items for File Output nodes only, excluding the current node"""
     items = []
@@ -150,11 +191,24 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
         update=update_linked_node
     )
     
-    # AYON override property
+    # AYON mode properties
     use_ayon_output_style: bpy.props.BoolProperty(
         name="Use AYON Output Style",
         description="When enabled and AYON is detected, use AYON-specific output path tokens. Disable to use standard Shotput tokens even in AYON context",
-        default=True
+        default=True,
+        update=update_ayon_mode
+    )
+    
+    # Backup properties for normal mode tokens (when AYON is enabled)
+    normal_root_folder_token: bpy.props.StringProperty(
+        name="Normal Root Folder Token",
+        description="Backup of normal root folder token when in AYON mode",
+        default=""
+    )
+    normal_file_name_token: bpy.props.StringProperty(
+        name="Normal File Name Token",
+        description="Backup of normal file name token when in AYON mode",
+        default=""
     )
     
     @property
