@@ -678,7 +678,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             print(f"Shotput: Composite inheriting version '{comp_props.version}' from scene props")
         
         # Set up path linking to the core node (but only if AYON is NOT enabled)
-        # When AYON is enabled, the tokens are already set correctly and should not be overwritten
+        # AYON mode defines full paths via tokens, so path linking is incompatible
         if not ayon_applied:
             # First set the full root folder token as if it were created normally
             comp_props.root_folder_token = shotput_props.root_folder_token
@@ -935,7 +935,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
             print(f"Shotput: Composite inheriting version '{comp_props.version}' from source props")
         
         # Set up path linking if we have a linked node (but only if AYON is NOT enabled)
-        # When AYON is enabled, the tokens are already set correctly and should not be overwritten
+        # AYON mode defines full paths via tokens, so path linking is incompatible
         if linked_node and not ayon_applied:
             # First set the full root folder token as if it were created normally
             comp_props.root_folder_token = getattr(source_props, 'root_folder_token', '')
