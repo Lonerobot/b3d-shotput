@@ -7,11 +7,15 @@ Shotput is a Blender addon for managing file output nodes with **token-based pat
 
 ## Why Use Token Based Outputs?
 
-Setting up render passes and various render output for compositing can be a time consuming activity in the lighting and render phase of a 3d project. You are often managing complex setups and outputs through multiple interations. Blender's rendering pipeline can be equally complex - given how flexible and powerful the compositor is. 
+Setting up render passes for compositing can be a time consuming activity in the lighting and render phase of a 3d project. 
 
-Tokens allow you to use placeholder logic within file paths and outputs to dynamically set the output paths and filenames
+You are often managing complex setups and outputs through multiple file interations. 
 
-There are also benefits to being able to be consistent between setups. Shotput allows you to save presets to share with diffferent artists, as well as setting presets as defaults that are loaded on startup via a pipeline environment variable.
+Blender's rendering pipeline can be equally complex - given how flexible and powerful the Compositor is. 
+
+Tokens allow you to use placeholder logic within file paths to dynamically set the output locations and filenames.
+
+There are also benefits to being able to be consistent with outputs between different setups. Shotput allows you to save presets to share with different artists, as well as setting presets as defaults that are loaded globally on startup via a pipeline environment variable. 
 
 ## Workflow
 
