@@ -658,8 +658,14 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.normal_root_folder_token = core_node.shotput_data.root_folder_token
         comp_props.normal_file_name_token = core_node.shotput_data.file_name_token
         
+        # Check if AYON context is detected and enable AYON mode if so
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node, is_ayon_context
+        if is_ayon_context():
+            # Enable AYON mode before applying tokens so the check passes
+            comp_props.use_ayon_output_style = True
+            print("Shotput: AYON context detected, enabling AYON mode on composite node")
+        
         # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
-        from ..utils.ayon_utils import apply_ayon_tokens_to_node
         ayon_applied = apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True)
         if ayon_applied:
             print("Shotput: Applied AYON-specific output tokens to composite node")
@@ -915,8 +921,14 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.normal_root_folder_token = getattr(source_props, 'root_folder_token', '')
         comp_props.normal_file_name_token = getattr(source_props, 'file_name_token', '')
         
+        # Check if AYON context is detected and enable AYON mode if so
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node, is_ayon_context
+        if is_ayon_context():
+            # Enable AYON mode before applying tokens so the check passes
+            comp_props.use_ayon_output_style = True
+            print("Shotput: AYON context detected, enabling AYON mode on composite node")
+        
         # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
-        from ..utils.ayon_utils import apply_ayon_tokens_to_node
         ayon_applied = apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True)
         if ayon_applied:
             print("Shotput: Applied AYON-specific output tokens to standalone composite node")
