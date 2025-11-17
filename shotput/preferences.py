@@ -98,7 +98,7 @@ class ShotputPreferences(bpy.types.AddonPreferences):
     ayon_composite_file_name_token: bpy.props.StringProperty(
         name="AYON Composite File Name Token",
         description="File name token pattern for composite nodes when AYON is detected",
-        default="/tmp/tmp"
+        default="{blendfile}"
     )
     
     # Node color preferences
