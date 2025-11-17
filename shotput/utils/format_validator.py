@@ -40,8 +40,7 @@ def validate_png_alpha_channel(context, file_format):
     if film_transparent:
         warning_msg = (
             "PNG format selected with Film Transparency enabled. "
-            "PNG will default to RGB mode. Consider manually setting "
-            "color mode to RGBA in the node's format settings to preserve alpha channel."
+            "Automatically setting PNG to RGBA mode to preserve alpha channel."
         )
         logger.warning(warning_msg)
         return False, warning_msg
