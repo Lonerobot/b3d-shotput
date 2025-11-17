@@ -8,6 +8,40 @@ from .utils import custom_icons
 
 logger = LoggerFactory.logger_obj()
 
+
+# ============================================================================
+# UI Helper Class
+# ============================================================================
+# Streamlines common UI patterns, particularly icon loading and layout operations
+# Reduces verbosity from 85+ icon loading calls throughout the file
+
+class UIHelper:
+    """Helper class for common UI operations and cleaner syntax"""
+    
+    @staticmethod
+    def get_icon(icon_name):
+        """Get icon parameters dict for use with layout elements"""
+        return custom_icons.get_icon_id_or_fallback(icon_name)
+    
+    @staticmethod
+    def icon_label(layout, text, icon_name):
+        """Add a label with icon in one call"""
+        icon = custom_icons.get_icon_id_or_fallback(icon_name)
+        layout.label(text=text, **icon)
+    
+    @staticmethod
+    def icon_operator(layout, operator_id, text, icon_name, **kwargs):
+        """Add an operator button with icon in one call"""
+        icon = custom_icons.get_icon_id_or_fallback(icon_name)
+        return layout.operator(operator_id, text=text, **icon, **kwargs)
+    
+    @staticmethod
+    def icon_menu(layout, menu_id, text, icon_name):
+        """Add a menu with icon in one call"""
+        icon = custom_icons.get_icon_id_or_fallback(icon_name)
+        layout.menu(menu_id, text=text, **icon)
+
+
 def get_panel_title():
     """Generate panel title with AYON status if available"""
     base_title = f"Shotput v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}-{__release_stage__}"
@@ -462,8 +496,7 @@ class SHOTPUT_MT_PresetEnvironmentMenu(bpy.types.Menu):
         # Get the environment path
         env_path = os.environ.get('SHOTPUT_PRESET_PATH')
         if not env_path:
-            icon_error_env = custom_icons.get_icon_id_or_fallback('error')
-            layout.label(text="SHOTPUT_PRESET_PATH not set", **icon_error_env)
+            UIHelper.icon_label(layout, "SHOTPUT_PRESET_PATH not set", 'error')
             return
         
         from pathlib import Path
@@ -475,20 +508,18 @@ class SHOTPUT_MT_PresetEnvironmentMenu(bpy.types.Menu):
         elif preset_path.is_dir():
             preset_dir = preset_path
         else:
-            icon_error_invalid = custom_icons.get_icon_id_or_fallback('error')
-            layout.label(text="Invalid SHOTPUT_PRESET_PATH", **icon_error_invalid)
+            UIHelper.icon_label(layout, "Invalid SHOTPUT_PRESET_PATH", 'error')
             return
         
         # Find all JSON files in the directory
         json_files = sorted(preset_dir.glob("*.json"))
         
         if not json_files:
-            icon_info_env = custom_icons.get_icon_id_or_fallback('info')
-            layout.label(text="No preset files found", **icon_info_env)
+            UIHelper.icon_label(layout, "No preset files found", 'info')
             return
         
         # Add an operator for each JSON file
-        icon_preset_env = custom_icons.get_icon_id_or_fallback('preset')
+        icon_preset_env = UIHelper.get_icon('preset')
         for json_file in json_files:
             op = layout.operator("shotput.load_preset_from_environment", 
                                text=json_file.stem, 
@@ -506,8 +537,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
         prop_path = "scene.shotput.root_folder_token"
         
         # Core Shotput tokens
-        icon_file_folder_token = custom_icons.get_icon_id_or_fallback('file_folder')
-        layout.label(text="Core Tokens", **icon_file_folder_token)
+        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
@@ -516,7 +546,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
             ('variant', 'Variant'),
             ('version', 'Version'),
         ]
-        icon_dot = custom_icons.get_icon_id_or_fallback('dot')
+        icon_dot = UIHelper.get_icon('dot')
         for token, label in core_tokens:
             op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
@@ -525,8 +555,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
         layout.separator()
         
         # AYON-specific tokens
-        icon_network = custom_icons.get_icon_id_or_fallback('network_drive')
-        layout.label(text="AYON Tokens", **icon_network)
+        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
         ayon_tokens = [
             ('project', 'Project Path'),
             ('projectname', 'Project Name'),
@@ -542,8 +571,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
         layout.separator()
         
         # Blender-specific tokens
-        icon_blender = custom_icons.get_icon_id_or_fallback('blender')
-        layout.label(text="Blender Tokens", **icon_blender)
+        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
         blender_tokens = [
             ('blendfile', 'Blend File Name'),
             ('scenename', 'Scene Name'),
@@ -558,8 +586,7 @@ class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
         layout.separator()
         
         # Date/Time tokens
-        icon_time = custom_icons.get_icon_id_or_fallback('time')
-        layout.label(text="Date/Time Tokens", **icon_time)
+        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
         datetime_tokens = [
             ('date', 'Current Date'),
             ('time', 'Current Time'),
@@ -578,8 +605,7 @@ class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
         prop_path = "scene.shotput.file_name_token"
         
         # Core Shotput tokens
-        icon_file_folder_token2 = custom_icons.get_icon_id_or_fallback('file_folder')
-        layout.label(text="Core Tokens", **icon_file_folder_token2)
+        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
@@ -588,17 +614,16 @@ class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
             ('variant', 'Variant'),
             ('version', 'Version'),
         ]
-        icon_dot2 = custom_icons.get_icon_id_or_fallback('dot')
+        icon_dot = UIHelper.get_icon('dot')
         for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot2)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # AYON-specific tokens
-        icon_network2 = custom_icons.get_icon_id_or_fallback('network_drive')
-        layout.label(text="AYON Tokens", **icon_network2)
+        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
         ayon_tokens = [
             ('project', 'Project Path'),
             ('projectname', 'Project Name'),
@@ -607,15 +632,14 @@ class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
             ('user', 'User Name'),
         ]
         for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot2)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Blender-specific tokens
-        icon_blender2 = custom_icons.get_icon_id_or_fallback('blender')
-        layout.label(text="Blender Tokens", **icon_blender2)
+        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
         blender_tokens = [
             ('blendfile', 'Blend File Name'),
             ('scenename', 'Scene Name'),
@@ -623,21 +647,20 @@ class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
             ('camera', 'Camera Name'),
         ]
         for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot2)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Date/Time tokens
-        icon_time2 = custom_icons.get_icon_id_or_fallback('time')
-        layout.label(text="Date/Time Tokens", **icon_time2)
+        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
         datetime_tokens = [
             ('date', 'Current Date'),
             ('time', 'Current Time'),
         ]
         for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot2)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
 
@@ -650,8 +673,7 @@ class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
         prop_path = "node.shotput_data.root_folder_token"
         
         # Core Shotput tokens
-        icon_file_folder_token3 = custom_icons.get_icon_id_or_fallback('file_folder')
-        layout.label(text="Core Tokens", **icon_file_folder_token3)
+        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
@@ -660,17 +682,16 @@ class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
             ('variant', 'Variant'),
             ('version', 'Version'),
         ]
-        icon_dot3 = custom_icons.get_icon_id_or_fallback('dot')
+        icon_dot = UIHelper.get_icon('dot')
         for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot3)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # AYON-specific tokens
-        icon_network3 = custom_icons.get_icon_id_or_fallback('network_drive')
-        layout.label(text="AYON Tokens", **icon_network3)
+        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
         ayon_tokens = [
             ('project', 'Project Path'),
             ('projectname', 'Project Name'),
@@ -679,15 +700,14 @@ class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
             ('user', 'User Name'),
         ]
         for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot3)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Blender-specific tokens
-        icon_blender3 = custom_icons.get_icon_id_or_fallback('blender')
-        layout.label(text="Blender Tokens", **icon_blender3)
+        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
         blender_tokens = [
             ('blendfile', 'Blend File Name'),
             ('scenename', 'Scene Name'),
@@ -695,21 +715,20 @@ class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
             ('camera', 'Camera Name'),
         ]
         for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot3)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Date/Time tokens
-        icon_time3 = custom_icons.get_icon_id_or_fallback('time')
-        layout.label(text="Date/Time Tokens", **icon_time3)
+        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
         datetime_tokens = [
             ('date', 'Current Date'),
             ('time', 'Current Time'),
         ]
         for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot3)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
 
@@ -722,8 +741,7 @@ class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
         prop_path = "node.shotput_data.file_name_token"
         
         # Core Shotput tokens
-        icon_file_folder_token4 = custom_icons.get_icon_id_or_fallback('file_folder')
-        layout.label(text="Core Tokens", **icon_file_folder_token4)
+        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
         core_tokens = [
             ('workdir', 'Working Directory'),
             ('subpath', 'Subpath'),
@@ -732,17 +750,16 @@ class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
             ('variant', 'Variant'),
             ('version', 'Version'),
         ]
-        icon_dot4 = custom_icons.get_icon_id_or_fallback('dot')
+        icon_dot = UIHelper.get_icon('dot')
         for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot4)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # AYON-specific tokens
-        icon_network4 = custom_icons.get_icon_id_or_fallback('network_drive')
-        layout.label(text="AYON Tokens", **icon_network4)
+        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
         ayon_tokens = [
             ('project', 'Project Path'),
             ('projectname', 'Project Name'),
@@ -751,15 +768,14 @@ class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
             ('user', 'User Name'),
         ]
         for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot4)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Blender-specific tokens
-        icon_blender4 = custom_icons.get_icon_id_or_fallback('blender')
-        layout.label(text="Blender Tokens", **icon_blender4)
+        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
         blender_tokens = [
             ('blendfile', 'Blend File Name'),
             ('scenename', 'Scene Name'),
@@ -767,21 +783,20 @@ class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
             ('camera', 'Camera Name'),
         ]
         for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot4)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
         
         layout.separator()
         
         # Date/Time tokens
-        icon_time4 = custom_icons.get_icon_id_or_fallback('time')
-        layout.label(text="Date/Time Tokens", **icon_time4)
+        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
         datetime_tokens = [
             ('date', 'Current Date'),
             ('time', 'Current Time'),
         ]
         for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot4)
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
             op.token = token
             op.property_path = prop_path
 
@@ -936,20 +951,18 @@ class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
 # UIList for passes
 class SHOTPUT_UL_CorePasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # Use custom icon if available, otherwise fallback to built-in
-        icon_params = custom_icons.get_icon_id_or_fallback('renderlayers')
+        icon_params = UIHelper.get_icon('renderlayers')
         layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 class SHOTPUT_UL_AOVPasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # Use custom icon if available, otherwise fallback to built-in
-        icon_params = custom_icons.get_icon_id_or_fallback('renderlayers')
+        icon_params = UIHelper.get_icon('renderlayers')
         layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 # UIList for stored passes on File Output nodes
 class SHOTPUT_UL_StoredPasses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        icon_params = custom_icons.get_icon_id_or_fallback('renderlayers')
+        icon_params = UIHelper.get_icon('renderlayers')
         layout.prop(item, "name", text="", emboss=True, **icon_params)
 
 class TL_PT_Shotput_UI(bpy.types.Panel):
@@ -971,11 +984,9 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
         # Show AYON icon if AYON is enabled
         if os.getenv("AYON_PROJECT_NAME"):
-            icon_ayon = custom_icons.get_icon_id_or_fallback('ayon')
-            col.label(text="Shotput - Tokenised Render Output System", **icon_ayon)
+            UIHelper.icon_label(col, "Shotput - Tokenised Render Output System", 'ayon')
         else:
-            icon_renderlayers = custom_icons.get_icon_id_or_fallback('renderlayers')
-            col.label(text="Shotput - Tokenised Render Output System", **icon_renderlayers)
+            UIHelper.icon_label(col, "Shotput - Tokenised Render Output System", 'renderlayers')
         
         col.separator(factor=0.5)
         
@@ -985,8 +996,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
 
         # Scene Properties Box - Output Layer and Variant
         box = layout.box()
-        icon_scene = custom_icons.get_icon_id_or_fallback('scene_data')
-        box.label(text="Output Node Properties", **icon_scene)
+        UIHelper.icon_label(box, "Output Node Properties", 'scene_data')
         box.prop(shotput, "output_layer", text="Output Layer")
         box.prop(shotput, "variant", text="Variant")
 
@@ -1004,8 +1014,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # row.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder)
        
         box = layout.box()
-        icon_nodetree = custom_icons.get_icon_id_or_fallback('nodetree')
-        box.label(text="Create Passes", **icon_nodetree)
+        UIHelper.icon_label(box, "Create Passes", 'nodetree')
         
 
         
@@ -1013,28 +1022,22 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             # Render Layer Channels mode - only show Core operator
             row = box.row()
             row.scale_y = 1.5
-            icon_params = custom_icons.get_icon_id_or_fallback('core')
-            row.operator("shotput.create_core_passes", text="Create All Passes (From Render Layer)", **icon_params)
+            UIHelper.icon_operator(row, "shotput.create_core_passes", "Create All Passes (From Render Layer)", 'core')
             
             # Add helpful info
             col = box.column()
             col.scale_y = 0.8
-            icon_info = custom_icons.get_icon_id_or_fallback('info')
-            col.label(text="Creates a shotput file output with all enabled render layer passes", **icon_info)
+            UIHelper.icon_label(col, "Creates a shotput file output with all enabled render layer passes", 'info')
             
         else:
             # Manual mode - show all operators
             # 4x1 horizontal layout for operators with increased height
             row = box.row(align=True)
             row.scale_y = 1.5
-            icon_core = custom_icons.get_icon_id_or_fallback('core')
-            row.operator("shotput.create_core_passes", text="Core", **icon_core)
-            icon_comp = custom_icons.get_icon_id_or_fallback('composite')
-            row.operator("shotput.create_linked_composite", text="Composite", **icon_comp)
-            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
-            row.operator("shotput.create_aov_passes", text="AOV", **icon_aov)
-            icon_data = custom_icons.get_icon_id_or_fallback('data')
-            row.operator("shotput.create_data_passes", text="Data", **icon_data)
+            UIHelper.icon_operator(row, "shotput.create_core_passes", "Core", 'core')
+            UIHelper.icon_operator(row, "shotput.create_linked_composite", "Composite", 'composite')
+            UIHelper.icon_operator(row, "shotput.create_aov_passes", "AOV", 'aov')
+            UIHelper.icon_operator(row, "shotput.create_data_passes", "Data", 'data')
         
         # Only show these options in manual mode
         if not shotput.use_render_layer_channels:
@@ -1046,23 +1049,20 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
 
         # Path Tokens Box - Root Folder and File Name with icon operators
         box = layout.box()
-        icon_file_folder = custom_icons.get_icon_id_or_fallback('file_folder')
-        box.label(text="Path Tokens", **icon_file_folder)
+        UIHelper.icon_label(box, "Path Tokens", 'file_folder')
         
         # Root folder with token menu and preview paths button
         row = box.row(align=True)
         row.prop(shotput, "root_folder_token", text="Root Folder")
-        icon_add = custom_icons.get_icon_id_or_fallback('add')
-        row.menu("SHOTPUT_MT_token_menu_root", text="", **icon_add)
-        icon_file_folder2 = custom_icons.get_icon_id_or_fallback('file_folder')
-        row.operator("shotput.preview_paths", text="", **icon_file_folder2)
+        UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_root", "", 'add')
+        icon_file_folder = UIHelper.get_icon('file_folder')
+        row.operator("shotput.preview_paths", text="", **icon_file_folder)
         
         # File name with token menu and token help button  
         row = box.row(align=True)
         row.prop(shotput, "file_name_token", text="File Name")
-        icon_add2 = custom_icons.get_icon_id_or_fallback('add')
-        row.menu("SHOTPUT_MT_token_menu_file", text="", **icon_add2)
-        icon_help = custom_icons.get_icon_id_or_fallback('token_help')
+        UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_file", "", 'add')
+        icon_help = UIHelper.get_icon('token_help')
         row.operator("shotput.token_help", text="", **icon_help)
         
         # Output Format in compact 2x2 grid
@@ -1089,16 +1089,14 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             core_row.prop(shotput, "expand_core_ui", 
                          icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
                          icon_only=True, emboss=False)
-            icon_core = custom_icons.get_icon_id_or_fallback('core')
-            core_row.label(text="Core Passes", **icon_core)
+            UIHelper.icon_label(core_row, "Core Passes", 'core')
             
             # AOV header (right half)
             aov_row = split.row()
             aov_row.prop(shotput, "expand_aov_ui", 
                         icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
                         icon_only=True, emboss=False)
-            icon_aov = custom_icons.get_icon_id_or_fallback('aov')
-            aov_row.label(text="AOV Passes", **icon_aov)
+            UIHelper.icon_label(aov_row, "AOV Passes", 'aov')
             
             # Content row - split into two columns
             if expand_core or expand_aov:
@@ -1111,14 +1109,14 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
                     row = core_col.row()
                     row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
                     col = row.column(align=True)
-                    icon_add_core = custom_icons.get_icon_id_or_fallback('add')
+                    icon_add_core = UIHelper.get_icon('add')
                     col.operator("shotput.core_pass_add", text="", **icon_add_core)
-                    icon_remove_core = custom_icons.get_icon_id_or_fallback('remove')
+                    icon_remove_core = UIHelper.get_icon('remove')
                     col.operator("shotput.core_pass_remove", text="", **icon_remove_core)
                     col.separator()
-                    icon_up_core = custom_icons.get_icon_id_or_fallback('tria_up')
+                    icon_up_core = UIHelper.get_icon('tria_up')
                     col.operator("shotput.core_pass_move_up", text="", **icon_up_core)
-                    icon_down_core = custom_icons.get_icon_id_or_fallback('tria_down')
+                    icon_down_core = UIHelper.get_icon('tria_down')
                     col.operator("shotput.core_pass_move_down", text="", **icon_down_core)
                 
                 # Right column - AOV Passes
@@ -1129,20 +1127,19 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
                     row = aov_col.row()
                     row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
                     col = row.column(align=True)
-                    icon_add_aov = custom_icons.get_icon_id_or_fallback('add')
+                    icon_add_aov = UIHelper.get_icon('add')
                     col.operator("shotput.aov_pass_add", text="", **icon_add_aov)
-                    icon_remove_aov = custom_icons.get_icon_id_or_fallback('remove')
+                    icon_remove_aov = UIHelper.get_icon('remove')
                     col.operator("shotput.aov_pass_remove", text="", **icon_remove_aov)
                     col.separator()
-                    icon_up_aov = custom_icons.get_icon_id_or_fallback('tria_up')
+                    icon_up_aov = UIHelper.get_icon('tria_up')
                     col.operator("shotput.aov_pass_move_up", text="", **icon_up_aov)
-                    icon_down_aov = custom_icons.get_icon_id_or_fallback('tria_down')
+                    icon_down_aov = UIHelper.get_icon('tria_down')
                     col.operator("shotput.aov_pass_move_down", text="", **icon_down_aov)
                     
                     # Scan button for shader AOVs
                     scan_row = aov_col.row()
-                    icon_zoom = custom_icons.get_icon_id_or_fallback('viewzoom')
-                    scan_row.operator("shotput.scan_shader_aovs", text="Scan AOVs", **icon_zoom)
+                    UIHelper.icon_operator(scan_row, "shotput.scan_shader_aovs", "Scan AOVs", 'viewzoom')
 
             # Data Passes Section (collapsible, closed by default)
             box = layout.box()
@@ -1151,8 +1148,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             row.prop(shotput, "expand_data_ui", 
                     icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            icon_data = custom_icons.get_icon_id_or_fallback('data')
-            row.label(text="Data Passes", **icon_data)
+            UIHelper.icon_label(row, "Data Passes", 'data')
             
             if expand_data:
                 # Basic data passes in 3x2 grid with toggle buttons
@@ -1182,8 +1178,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
 
         # Preset Management Box
         box = layout.box()
-        icon_preset = custom_icons.get_icon_id_or_fallback('preset')
-        box.label(text="Preset Management", **icon_preset)
+        UIHelper.icon_label(box, "Preset Management", 'preset')
         
         # Preset buttons
         row = box.row()
@@ -1198,15 +1193,10 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             if preset_dir and preset_dir.exists():
                 json_files = list(preset_dir.glob("*.json"))
                 if json_files:
-                    icon_preset_menu = custom_icons.get_icon_id_or_fallback('preset')
-                    row.menu("SHOTPUT_MT_preset_environment_menu", text="Load From Env", **icon_preset_menu)
+                    UIHelper.icon_menu(row, "SHOTPUT_MT_preset_environment_menu", "Load From Env", 'preset')
         
-        icon_import = custom_icons.get_icon_id_or_fallback('import')
-        row.operator("shotput.load_preset", text="Load Pass Setup", **icon_import)
-        
-
-        icon_export = custom_icons.get_icon_id_or_fallback('export')
-        row.operator("shotput.save_preset", text="Save Pass Setup", **icon_export)
+        UIHelper.icon_operator(row, "shotput.load_preset", "Load Pass Setup", 'import')
+        UIHelper.icon_operator(row, "shotput.save_preset", "Save Pass Setup", 'export')
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):
@@ -1235,16 +1225,14 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         col = box.column(align=True)
         
         if node.type == 'COMPOSITE':
-            icon_info_comp = custom_icons.get_icon_id_or_fallback('info')
-            col.label(text="Shotput Composite Node", **icon_info_comp)
+            UIHelper.icon_label(col, "Shotput Composite Node", 'info')
             col.separator(factor=0.5)
             
             # Multi-line description with smaller text
             col.scale_y = 0.8
             col.label(text="This Composite node will sync the scene's render filepath when 'Update Version' is called")
         else:
-            icon_info_file = custom_icons.get_icon_id_or_fallback('info')
-            col.label(text="Shotput File Output Node", **icon_info_file)
+            UIHelper.icon_label(col, "Shotput File Output Node", 'info')
             col.separator(factor=0.)
             
             # Multi-line description with smaller text
@@ -1257,16 +1245,14 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         # Header row with title and version
         if shotput_data.shotput_version:
             header_row = box.row()
-            icon_settings_header = custom_icons.get_icon_id_or_fallback('settings')
-            header_row.label(text="Shotput Properties", **icon_settings_header)
+            UIHelper.icon_label(header_row, "Shotput Properties", 'settings')
             # Add some spacing to push version to the right
             header_row.separator()
             version_label = header_row.row()
             version_label.enabled = False  # Make only the version read-only (greyed out)
             version_label.label(text=f"Version: {shotput_data.shotput_version}")
         else:
-            icon_settings = custom_icons.get_icon_id_or_fallback('settings')
-            box.label(text="Shotput Properties", **icon_settings)
+            UIHelper.icon_label(box, "Shotput Properties", 'settings')
         
         box.prop(shotput_data, "output_layer", text="Output Layer")
         box.prop(shotput_data, "pass_name", text="Pass Name")
@@ -1277,7 +1263,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         ayon_detected = bool(os.getenv("AYON_PROJECT_NAME"))
         if ayon_detected:
             row = box.row()
-            icon_ayon = custom_icons.get_icon_id_or_fallback('ayon')
+            icon_ayon = UIHelper.get_icon('ayon')
             if shotput_data.use_ayon_output_style:
                 row.prop(shotput_data, "use_ayon_output_style", 
                         text="AYON Mode", 
@@ -1289,8 +1275,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                         toggle=True,
                         icon='CANCEL')
         
-        icon_file_folder_path = custom_icons.get_icon_id_or_fallback('file_folder')
-        box.label(text="Path Configuration", **icon_file_folder_path)
+        UIHelper.icon_label(box, "Path Configuration", 'file_folder')
         
         # Path linking controls - disabled in AYON mode
         if ayon_detected and shotput_data.use_ayon_output_style:
@@ -1302,13 +1287,13 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             # Normal mode - show path linking controls
             row = box.row()
             if shotput_data.path_linked:
-                icon_linked = custom_icons.get_icon_id_or_fallback('linked')
+                icon_linked = UIHelper.get_icon('linked')
                 row.operator("shotput.toggle_path_linking", 
                             text="Path Linked", 
                             depress=True,
                             **icon_linked)
             else:
-                icon_unlinked = custom_icons.get_icon_id_or_fallback('unlinked')
+                icon_unlinked = UIHelper.get_icon('unlinked')
                 row.operator("shotput.toggle_path_linking", 
                             text="Enable Path Linking", 
                             depress=False,
@@ -1322,20 +1307,18 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             linked_node = shotput_data.node
             if linked_node:
                 row = box.row()
-                icon_file_folder_linked = custom_icons.get_icon_id_or_fallback('file_folder')
+                icon_file_folder_linked = UIHelper.get_icon('file_folder')
                 row.label(text=f"Linked Path: {linked_node.base_path}", **icon_file_folder_linked)
                 row.enabled = False  # Make it read-only/grayed out
             else:
                 row = box.row()
-                icon_error = custom_icons.get_icon_id_or_fallback('error')
-                row.label(text="No valid linked node selected", **icon_error)
+                UIHelper.icon_label(row, "No valid linked node selected", 'error')
                 row.enabled = False
             
             # Append path field with consistent layout and token menu
             row = box.row(align=True)
             row.prop(shotput_data, "root_folder_token", text="Append Path")
-            icon_add_node = custom_icons.get_icon_id_or_fallback('add')
-            row.menu("SHOTPUT_MT_token_menu_node_root", text="", **icon_add_node)
+            UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
             
             # Show backup info if available
             # if shotput_data.root_folder_token_backup:
@@ -1351,8 +1334,7 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                 row.prop(shotput_data, "root_folder_token", text="AYON Root Folder")
             else:
                 row.prop(shotput_data, "root_folder_token", text="Root Folder")
-                icon_add_node2 = custom_icons.get_icon_id_or_fallback('add')
-                row.menu("SHOTPUT_MT_token_menu_node_root", text="", **icon_add_node2)
+                UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
         
         # File name token - make read-only if AYON mode is enabled
         row = box.row(align=True)
@@ -1361,23 +1343,19 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             row.prop(shotput_data, "file_name_token", text="AYON File Name")
         else:
             row.prop(shotput_data, "file_name_token", text="File Name")
-            icon_add_node3 = custom_icons.get_icon_id_or_fallback('add')
-            row.menu("SHOTPUT_MT_token_menu_node_file", text="", **icon_add_node3)
+            UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_file", "", 'add')
         
         # Output Folder Actions and Lazy Hook-up in a single row
         row = box.row()
-        icon_folder_node = custom_icons.get_icon_id_or_fallback('folder_redirect')
-        row.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder_node)
-        icon_linked_node = custom_icons.get_icon_id_or_fallback('linked')
-        row.operator("shotput.lazy_hookup", text="Connect to Render Layer", **icon_linked_node)
+        UIHelper.icon_operator(row, "shotput.open_output_folder", "Open Output Folder", 'folder_redirect')
+        UIHelper.icon_operator(row, "shotput.lazy_hookup", "Connect to Render Layer", 'linked')
         
         # Create Linked Composite button - only show for File Output nodes and when AYON mode is not active
         if node.type == 'OUTPUT_FILE':
             # Don't show if AYON mode is active (path linking not compatible)
             if not (ayon_detected and shotput_data.use_ayon_output_style):
                 row = box.row()
-                icon_composite = custom_icons.get_icon_id_or_fallback('composite')
-                row.operator("shotput.create_linked_composite", text="Create Linked Composite Node", **icon_composite)
+                UIHelper.icon_operator(row, "shotput.create_linked_composite", "Create Linked Composite Node", 'composite')
         
         # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
         if node.type == 'OUTPUT_FILE':
@@ -1387,27 +1365,25 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
             row.prop(shotput_data, "expand_stored_ui", 
                     icon="TRIA_DOWN" if expand_stored else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            icon_render_stored = custom_icons.get_icon_id_or_fallback('renderlayers')
-            row.label(text="Output Passes (Advanced)", **icon_render_stored)
+            UIHelper.icon_label(row, "Output Passes (Advanced)", 'renderlayers')
             
             if expand_stored:
                 # Sync button (one-way: stored passes -> node slots)
                 row = box.row()
-                icon_sync = custom_icons.get_icon_id_or_fallback('file_refresh')
-                row.operator("shotput.sync_node_passes", text="Sync to Node Slots", **icon_sync)
+                UIHelper.icon_operator(row, "shotput.sync_node_passes", "Sync to Node Slots", 'file_refresh')
                 
                 # UIList with controls
                 row = box.row()
                 row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
                 col = row.column(align=True)
-                icon_add_stored = custom_icons.get_icon_id_or_fallback('add')
+                icon_add_stored = UIHelper.get_icon('add')
                 col.operator("shotput.stored_pass_add", text="", **icon_add_stored)
-                icon_remove_stored = custom_icons.get_icon_id_or_fallback('remove')
+                icon_remove_stored = UIHelper.get_icon('remove')
                 col.operator("shotput.stored_pass_remove", text="", **icon_remove_stored)
                 col.separator()
-                icon_up_stored = custom_icons.get_icon_id_or_fallback('tria_up')
+                icon_up_stored = UIHelper.get_icon('tria_up')
                 col.operator("shotput.stored_pass_move_up", text="", **icon_up_stored)
-                icon_down_stored = custom_icons.get_icon_id_or_fallback('tria_down')
+                icon_down_stored = UIHelper.get_icon('tria_down')
                 col.operator("shotput.stored_pass_move_down", text="", **icon_down_stored)
 
 
@@ -1419,13 +1395,10 @@ class NODE_MT_shotput(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         
-        icon_refresh_menu = custom_icons.get_icon_id_or_fallback('file_refresh')
-        layout.operator("shotput.update_version", text="Update Version", **icon_refresh_menu)
-        icon_folder_menu = custom_icons.get_icon_id_or_fallback('file_folder')
-        layout.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder_menu)
+        UIHelper.icon_operator(layout, "shotput.update_version", "Update Version", 'file_refresh')
+        UIHelper.icon_operator(layout, "shotput.open_output_folder", "Open Output Folder", 'file_folder')
         layout.separator()
-        icon_renderlayers_menu = custom_icons.get_icon_id_or_fallback('renderlayers')
-        layout.operator("shotput.build_render_layers", text="Build Render Layers from View", **icon_renderlayers_menu)
+        UIHelper.icon_operator(layout, "shotput.build_render_layers", "Build Render Layers from View", 'renderlayers')
 
 
 class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
