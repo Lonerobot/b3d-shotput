@@ -83,18 +83,15 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         aov_format = get_file_format_for_pass_type("aov", shotput_props.output_format)
         file_output.format.file_format = aov_format
         
-        # Validate PNG alpha channel configuration and warn user if needed
-        is_valid, warning_msg = validate_png_alpha_channel(context, aov_format)
+        # Validate PNG alpha channel configuration and auto-configure based on film transparency
+        is_valid, info_msg = validate_png_alpha_channel(context, aov_format)
         if not is_valid:
-            # Show warning to user
-            self.report({'WARNING'}, warning_msg)
-            print(f"Shotput: {warning_msg}")
+            # Show info to user about auto-configuration
+            self.report({'INFO'}, info_msg)
+            print(f"Shotput: {info_msg}")
             
-            # Automatically fix the issue by setting RGBA mode
-            if apply_png_alpha_channel_fix(file_output, context):
-                fix_msg = "Automatically set PNG to RGBA mode to preserve alpha channel"
-                self.report({'INFO'}, fix_msg)
-                print(f"Shotput: {fix_msg}")
+            # Automatically configure color mode to match film transparency setting
+            apply_png_alpha_channel_fix(file_output, context)
         
         # Set node color - darker orange for AOV passes
         file_output.use_custom_color = True

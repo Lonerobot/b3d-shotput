@@ -16,8 +16,9 @@ def validate_png_alpha_channel(context, file_format):
     Validate PNG format settings against film transparency settings.
     
     PNG format can output as RGB (no alpha) or RGBA (with alpha).
-    If film transparency is enabled, the user likely wants RGBA output.
-    If film transparency is disabled, RGB output is typically appropriate.
+    This validator ensures the color mode matches film transparency:
+    - Film transparency ON -> RGBA (preserve alpha channel)
+    - Film transparency OFF -> RGB (no alpha needed)
     
     Args:
         context: Blender context
@@ -25,8 +26,8 @@ def validate_png_alpha_channel(context, file_format):
         
     Returns:
         tuple: (is_valid, warning_message)
-            is_valid: True if no issues detected, False if there's a mismatch
-            warning_message: String describing the issue, or empty string if no issues
+            is_valid: True if no issues detected, False if configuration needed
+            warning_message: String describing what will be fixed, or empty if no issues
     """
     # Only validate PNG format
     if file_format != 'PNG':
@@ -35,8 +36,7 @@ def validate_png_alpha_channel(context, file_format):
     # Check film transparency setting
     film_transparent = context.scene.render.film_transparent
     
-    # PNG defaults to RGB in Blender's File Output node
-    # If film transparency is enabled, user probably wants RGBA output
+    # Determine appropriate action based on film transparency
     if film_transparent:
         warning_msg = (
             "PNG format selected with Film Transparency enabled. "
@@ -44,17 +44,23 @@ def validate_png_alpha_channel(context, file_format):
         )
         logger.warning(warning_msg)
         return False, warning_msg
-    
-    # No issues detected
-    return True, ""
+    else:
+        # Film transparency disabled - ensure RGB mode for efficiency
+        warning_msg = (
+            "PNG format selected with Film Transparency disabled. "
+            "Automatically setting PNG to RGB mode (no alpha channel needed)."
+        )
+        logger.info(warning_msg)
+        return False, warning_msg
 
 
 def apply_png_alpha_channel_fix(file_output_node, context):
     """
-    Automatically configure PNG format to use RGBA when film transparency is enabled.
+    Automatically configure PNG format to match film transparency settings.
     
-    This is a helper function that can be called after creating a File Output node
-    to ensure proper alpha channel configuration for PNG format.
+    Sets RGBA when film transparency is enabled, or RGB when disabled.
+    This helper can be called after creating a File Output node to ensure
+    proper alpha channel configuration for PNG format.
     
     Args:
         file_output_node: The File Output node to configure
@@ -68,13 +74,18 @@ def apply_png_alpha_channel_fix(file_output_node, context):
         if file_output_node.format.file_format != 'PNG':
             return False
         
-        # Check if film transparency is enabled
-        if not context.scene.render.film_transparent:
-            return False
+        # Configure color mode based on film transparency setting
+        film_transparent = context.scene.render.film_transparent
         
-        # Set color mode to RGBA to preserve alpha channel
-        file_output_node.format.color_mode = 'RGBA'
-        logger.info("Applied RGBA color mode to PNG output node (film transparency enabled)")
+        if film_transparent:
+            # Set color mode to RGBA to preserve alpha channel
+            file_output_node.format.color_mode = 'RGBA'
+            logger.info("Applied RGBA color mode to PNG output node (film transparency enabled)")
+        else:
+            # Set color mode to RGB when alpha is not needed
+            file_output_node.format.color_mode = 'RGB'
+            logger.info("Applied RGB color mode to PNG output node (film transparency disabled)")
+        
         return True
         
     except Exception as e:
