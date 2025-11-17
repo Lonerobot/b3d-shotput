@@ -3,13 +3,19 @@
 ![Blender](https://img.shields.io/badge/blender-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
-## Overview
+Shotput is a Blender addon for managing file output nodes with **token-based path resolution and versioning**. It works standalone or integrates seamlessly with the [AYON pipeline](https://ynput.io/ayon/) for production environments.
 
-Shotput is a Blender addon for managing file output nodes with token-based path resolution, smart versioning, and intelligent file format handling. It works standalone or integrates seamlessly with AYON pipeline for production environments.
+## Why Use Token Based Outputs?
+
+Setting up render passes and various render output for compositing can be a time consuming activity in the lighting and render phase of a 3d project. You are often managing complex setups and outputs through multiple interations. Blender's rendering pipeline can be equally complex - given how flexible and powerful the compositor is. 
+
+Tokens allow you to use placeholder logic within file paths and outputs to dynamically set the output paths and filenames
+
+There are also benefits to being able to be consistent between setups. Shotput allows you to save presets to share with diffferent artists, as well as setting presets as defaults that are loaded on startup via a pipeline environment variable.
 
 ## Workflow
 
-Shotput lives in the Compostor workspace, and has a main interface, and a quick compositor menu. These are designed for different stages of your render workflow:
+Shotput lives in the Compostor workspace, and has a main interface, and a quick compositor menu. These two areas are designed for different stages of your render workflow:
 
 ### Main UI Panel (Sidebar)
 
@@ -204,7 +210,7 @@ Presets are JSON files that define pass configurations and organizational settin
 
 ## Pipeline Integration
 
-All the tokenization logic happens when the nodes are updated - while the tokens exist within custom properties on the node, no part of the output path or filename is "tokenized". This means there is nothing incompatible about the file's output, nor is it tied to the addon in that regard. This means it should be 100% compatible with render farms. It also means you could share a file that was set up with this addon with a user that doesn't have it - it would remove the ability to update automatically, but it wouldn't break anything.
+All the tokenization logic happens when the nodes are updated - while the tokens exist within custom properties on the node, these are automatically parsed into the output. This means there is nothing incompatible outside of the addon regarding the file's output. This means it will have no issues with render farms or rendering on machines without the addon. It also means you could share a file that was set up with Shotput with a user that doesn't - it would remove the ability to update automatically, but it wouldn't break anything.
 
 Shotput works with:
 
