@@ -7,6 +7,7 @@ from ..utils.defaults import get_file_format_for_pass_type, apply_data_format_se
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
 from ..utils.pass_mapping import pass_mapping
+from ..utils.format_validator import validate_png_alpha_channel, apply_png_alpha_channel_fix
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_Data_Passes(bpy.types.Operator):
@@ -154,6 +155,19 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         # This must be done before ANY slot operations to prevent format from overriding slot names
         data_format = get_file_format_for_pass_type("data", shotput_props.output_format)
         file_output.format.file_format = data_format
+        
+        # Validate PNG alpha channel configuration if user has overridden to PNG
+        is_valid, warning_msg = validate_png_alpha_channel(context, data_format)
+        if not is_valid:
+            # Show warning to user
+            self.report({'WARNING'}, warning_msg)
+            print(f"Shotput: {warning_msg}")
+            
+            # Automatically fix the issue by setting RGBA mode
+            if apply_png_alpha_channel_fix(file_output, context):
+                fix_msg = "Automatically set PNG to RGBA mode to preserve alpha channel"
+                self.report({'INFO'}, fix_msg)
+                print(f"Shotput: {fix_msg}")
         
         # Apply data-specific format settings (full float precision)
         apply_data_format_settings(file_output)

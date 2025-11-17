@@ -6,6 +6,7 @@ from ..utils.token_parser import TokenParser
 from ..utils.defaults import get_file_format_for_pass_type, get_sequence_padding
 from ..utils.lazy_hookup import auto_connect_node
 from ..utils.color_utils import store_original_node_color
+from ..utils.format_validator import validate_png_alpha_channel, apply_png_alpha_channel_fix
 logger = LoggerFactory.logger_obj()
 
 class OT_Create_AOV_Passes(bpy.types.Operator):
@@ -81,6 +82,19 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # This must be done before ANY slot operations to prevent format from overriding slot names
         aov_format = get_file_format_for_pass_type("aov", shotput_props.output_format)
         file_output.format.file_format = aov_format
+        
+        # Validate PNG alpha channel configuration and warn user if needed
+        is_valid, warning_msg = validate_png_alpha_channel(context, aov_format)
+        if not is_valid:
+            # Show warning to user
+            self.report({'WARNING'}, warning_msg)
+            print(f"Shotput: {warning_msg}")
+            
+            # Automatically fix the issue by setting RGBA mode
+            if apply_png_alpha_channel_fix(file_output, context):
+                fix_msg = "Automatically set PNG to RGBA mode to preserve alpha channel"
+                self.report({'INFO'}, fix_msg)
+                print(f"Shotput: {fix_msg}")
         
         # Set node color - darker orange for AOV passes
         file_output.use_custom_color = True
