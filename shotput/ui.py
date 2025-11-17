@@ -528,277 +528,99 @@ class SHOTPUT_MT_PresetEnvironmentMenu(bpy.types.Menu):
 
 
 # Token menu classes for different fields
-class SHOTPUT_MT_TokenMenuRoot(bpy.types.Menu):
+# Base class to reduce duplication across 4 token menu variants
+class BaseTokenMenu(bpy.types.Menu):
+    """Base class for token insertion menus with shared drawing logic"""
     bl_label = "Insert Token"
+    property_path = ""  # Override in subclass
+    
+    # Token definitions (same for all menus)
+    CORE_TOKENS = [
+        ('workdir', 'Working Directory'),
+        ('subpath', 'Subpath'),
+        ('outputlayer', 'Output Layer'),
+        ('passname', 'Pass Name'),
+        ('variant', 'Variant'),
+        ('version', 'Version'),
+    ]
+    
+    AYON_TOKENS = [
+        ('project', 'Project Path'),
+        ('projectname', 'Project Name'),
+        ('task', 'Task Name'),
+        ('folder', 'Folder Path'),
+        ('user', 'User Name'),
+    ]
+    
+    BLENDER_TOKENS = [
+        ('blendfile', 'Blend File Name'),
+        ('scenename', 'Scene Name'),
+        ('frame', 'Frame Number'),
+        ('camera', 'Camera Name'),
+    ]
+    
+    DATETIME_TOKENS = [
+        ('date', 'Current Date'),
+        ('time', 'Current Time'),
+    ]
+    
+    def draw(self, context):
+        layout = self.layout
+        icon_dot = UIHelper.get_icon('dot')
+        
+        # Core Shotput tokens
+        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
+        for token, label in self.CORE_TOKENS:
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
+            op.token = token
+            op.property_path = self.property_path
+        
+        layout.separator()
+        
+        # AYON-specific tokens
+        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
+        for token, label in self.AYON_TOKENS:
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
+            op.token = token
+            op.property_path = self.property_path
+        
+        layout.separator()
+        
+        # Blender-specific tokens
+        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
+        for token, label in self.BLENDER_TOKENS:
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
+            op.token = token
+            op.property_path = self.property_path
+        
+        layout.separator()
+        
+        # Date/Time tokens
+        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
+        for token, label in self.DATETIME_TOKENS:
+            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
+            op.token = token
+            op.property_path = self.property_path
+
+
+class SHOTPUT_MT_TokenMenuRoot(BaseTokenMenu):
     bl_idname = "SHOTPUT_MT_token_menu_root"
-    
-    def draw(self, context):
-        layout = self.layout
-        prop_path = "scene.shotput.root_folder_token"
-        
-        # Core Shotput tokens
-        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
-        core_tokens = [
-            ('workdir', 'Working Directory'),
-            ('subpath', 'Subpath'),
-            ('outputlayer', 'Output Layer'),
-            ('passname', 'Pass Name'),
-            ('variant', 'Variant'),
-            ('version', 'Version'),
-        ]
-        icon_dot = UIHelper.get_icon('dot')
-        for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # AYON-specific tokens
-        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
-        ayon_tokens = [
-            ('project', 'Project Path'),
-            ('projectname', 'Project Name'),
-            ('task', 'Task Name'),
-            ('folder', 'Folder Path'),
-            ('user', 'User Name'),
-        ]
-        for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Blender-specific tokens
-        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
-        blender_tokens = [
-            ('blendfile', 'Blend File Name'),
-            ('scenename', 'Scene Name'),
-            ('frame', 'Frame Number'),
-            ('camera', 'Camera Name'),
-        ]
-        for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Date/Time tokens
-        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
-        datetime_tokens = [
-            ('date', 'Current Date'),
-            ('time', 'Current Time'),
-        ]
-        for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
+    property_path = "scene.shotput.root_folder_token"
 
-class SHOTPUT_MT_TokenMenuFile(bpy.types.Menu):
-    bl_label = "Insert Token"
+
+class SHOTPUT_MT_TokenMenuFile(BaseTokenMenu):
     bl_idname = "SHOTPUT_MT_token_menu_file"
-    
-    def draw(self, context):
-        layout = self.layout
-        prop_path = "scene.shotput.file_name_token"
-        
-        # Core Shotput tokens
-        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
-        core_tokens = [
-            ('workdir', 'Working Directory'),
-            ('subpath', 'Subpath'),
-            ('outputlayer', 'Output Layer'),
-            ('passname', 'Pass Name'),
-            ('variant', 'Variant'),
-            ('version', 'Version'),
-        ]
-        icon_dot = UIHelper.get_icon('dot')
-        for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # AYON-specific tokens
-        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
-        ayon_tokens = [
-            ('project', 'Project Path'),
-            ('projectname', 'Project Name'),
-            ('task', 'Task Name'),
-            ('folder', 'Folder Path'),
-            ('user', 'User Name'),
-        ]
-        for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Blender-specific tokens
-        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
-        blender_tokens = [
-            ('blendfile', 'Blend File Name'),
-            ('scenename', 'Scene Name'),
-            ('frame', 'Frame Number'),
-            ('camera', 'Camera Name'),
-        ]
-        for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Date/Time tokens
-        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
-        datetime_tokens = [
-            ('date', 'Current Date'),
-            ('time', 'Current Time'),
-        ]
-        for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
+    property_path = "scene.shotput.file_name_token"
 
-class SHOTPUT_MT_TokenMenuNodeRoot(bpy.types.Menu):
-    bl_label = "Insert Token"
+
+class SHOTPUT_MT_TokenMenuNodeRoot(BaseTokenMenu):
     bl_idname = "SHOTPUT_MT_token_menu_node_root"
-    
-    def draw(self, context):
-        layout = self.layout
-        prop_path = "node.shotput_data.root_folder_token"
-        
-        # Core Shotput tokens
-        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
-        core_tokens = [
-            ('workdir', 'Working Directory'),
-            ('subpath', 'Subpath'),
-            ('outputlayer', 'Output Layer'),
-            ('passname', 'Pass Name'),
-            ('variant', 'Variant'),
-            ('version', 'Version'),
-        ]
-        icon_dot = UIHelper.get_icon('dot')
-        for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # AYON-specific tokens
-        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
-        ayon_tokens = [
-            ('project', 'Project Path'),
-            ('projectname', 'Project Name'),
-            ('task', 'Task Name'),
-            ('folder', 'Folder Path'),
-            ('user', 'User Name'),
-        ]
-        for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Blender-specific tokens
-        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
-        blender_tokens = [
-            ('blendfile', 'Blend File Name'),
-            ('scenename', 'Scene Name'),
-            ('frame', 'Frame Number'),
-            ('camera', 'Camera Name'),
-        ]
-        for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Date/Time tokens
-        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
-        datetime_tokens = [
-            ('date', 'Current Date'),
-            ('time', 'Current Time'),
-        ]
-        for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
+    property_path = "node.shotput_data.root_folder_token"
 
-class SHOTPUT_MT_TokenMenuNodeFile(bpy.types.Menu):
-    bl_label = "Insert Token"
+
+class SHOTPUT_MT_TokenMenuNodeFile(BaseTokenMenu):
     bl_idname = "SHOTPUT_MT_token_menu_node_file"
-    
-    def draw(self, context):
-        layout = self.layout
-        prop_path = "node.shotput_data.file_name_token"
-        
-        # Core Shotput tokens
-        UIHelper.icon_label(layout, "Core Tokens", 'file_folder')
-        core_tokens = [
-            ('workdir', 'Working Directory'),
-            ('subpath', 'Subpath'),
-            ('outputlayer', 'Output Layer'),
-            ('passname', 'Pass Name'),
-            ('variant', 'Variant'),
-            ('version', 'Version'),
-        ]
-        icon_dot = UIHelper.get_icon('dot')
-        for token, label in core_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # AYON-specific tokens
-        UIHelper.icon_label(layout, "AYON Tokens", 'network_drive')
-        ayon_tokens = [
-            ('project', 'Project Path'),
-            ('projectname', 'Project Name'),
-            ('task', 'Task Name'),
-            ('folder', 'Folder Path'),
-            ('user', 'User Name'),
-        ]
-        for token, label in ayon_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Blender-specific tokens
-        UIHelper.icon_label(layout, "Blender Tokens", 'blender')
-        blender_tokens = [
-            ('blendfile', 'Blend File Name'),
-            ('scenename', 'Scene Name'),
-            ('frame', 'Frame Number'),
-            ('camera', 'Camera Name'),
-        ]
-        for token, label in blender_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
-        
-        layout.separator()
-        
-        # Date/Time tokens
-        UIHelper.icon_label(layout, "Date/Time Tokens", 'time')
-        datetime_tokens = [
-            ('date', 'Current Date'),
-            ('time', 'Current Time'),
-        ]
-        for token, label in datetime_tokens:
-            op = layout.operator("shotput.insert_token", text=label, **icon_dot)
-            op.token = token
-            op.property_path = prop_path
+    property_path = "node.shotput_data.file_name_token"
 
 class SHOTPUT_OT_SyncNodePasses(bpy.types.Operator):
     bl_idname = "shotput.sync_node_passes"
@@ -972,13 +794,9 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
     bl_order = 2
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = "UI"
-        
-    def draw(self, context):
-        layout = self.layout
-        # layout.scale_y = 1.1
-        shotput = context.scene.shotput
-
-        # Welcome/Description Box
+    
+    def draw_header_section(self, layout, shotput):
+        """Draw welcome/description box with AYON detection"""
         box = layout.box()
         col = box.column(align=True)
         
@@ -989,34 +807,20 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             UIHelper.icon_label(col, "Shotput - Tokenised Render Output System", 'renderlayers')
         
         col.separator(factor=0.5)
-        
-        # Multi-line description with smaller text
         col.scale_y = 0.8
         col.label(text="Create and update automatic versions for renders")
-
-        # Scene Properties Box - Output Layer and Variant
+    
+    def draw_properties_section(self, layout, shotput):
+        """Draw scene properties box"""
         box = layout.box()
         UIHelper.icon_label(box, "Output Node Properties", 'scene_data')
         box.prop(shotput, "output_layer", text="Output Layer")
         box.prop(shotput, "variant", text="Variant")
-
-        # Update Version - larger button
-        
-        # v1.1.2 seeing if removing these in favour of the menu update is better UX
-        # row = layout.row()
-        # row.scale_y = 1.5
-        # icon_refresh = custom_icons.get_icon_id_or_fallback('file_refresh')
-        # row.operator("shotput.update_version", text="Update Version", **icon_refresh)
-
-        # # Open Output Folder
-        # row = layout.row()
-        # icon_folder = custom_icons.get_icon_id_or_fallback('folder_redirect')
-        # row.operator("shotput.open_output_folder", text="Open Output Folder", **icon_folder)
-       
+    
+    def draw_passes_section(self, layout, shotput):
+        """Draw pass creation box with render layer mode detection"""
         box = layout.box()
         UIHelper.icon_label(box, "Create Passes", 'nodetree')
-        
-
         
         if shotput.use_render_layer_channels:
             # Render Layer Channels mode - only show Core operator
@@ -1028,10 +832,8 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
             col = box.column()
             col.scale_y = 0.8
             UIHelper.icon_label(col, "Creates a shotput file output with all enabled render layer passes", 'info')
-            
         else:
             # Manual mode - show all operators
-            # 4x1 horizontal layout for operators with increased height
             row = box.row(align=True)
             row.scale_y = 1.5
             UIHelper.icon_operator(row, "shotput.create_core_passes", "Core", 'core')
@@ -1042,12 +844,12 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         # Only show these options in manual mode
         if not shotput.use_render_layer_channels:
             box.prop(shotput, "create_composite_from_core", text="Create Linked Composite Node from Core")
-            
+        
         box.prop(shotput, "lazy_hook_up", text="Auto-Connect to Render Layer")
-        # Add the "Use Render Layer Channels" checkbox
         box.prop(shotput, "use_render_layer_channels", text="Use Render Layer Channels")
-
-        # Path Tokens Box - Root Folder and File Name with icon operators
+    
+    def draw_path_tokens_section(self, layout, shotput):
+        """Draw path tokens configuration box"""
         box = layout.box()
         UIHelper.icon_label(box, "Path Tokens", 'file_folder')
         
@@ -1072,115 +874,128 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         grid.prop_enum(shotput, "output_format", 'JPEG')
         grid.prop_enum(shotput, "output_format", 'OPEN_EXR')
         grid.prop_enum(shotput, "output_format", 'OPEN_EXR_MULTILAYER')
-
-        # Only show pass selection sections in manual mode
-        if not shotput.use_render_layer_channels:
-            # Core and AOV Passes side by side
-            box = layout.box()
-            
-            # Header row with both expand toggles
-            row = box.row()
-            expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
-            expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
-            
-            # Core header (left half)
-            split = row.split(factor=0.5)
-            core_row = split.row()
-            core_row.prop(shotput, "expand_core_ui", 
-                         icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
-                         icon_only=True, emboss=False)
-            UIHelper.icon_label(core_row, "Core Passes", 'core')
-            
-            # AOV header (right half)
-            aov_row = split.row()
-            aov_row.prop(shotput, "expand_aov_ui", 
-                        icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
-                        icon_only=True, emboss=False)
-            UIHelper.icon_label(aov_row, "AOV Passes", 'aov')
-            
-            # Content row - split into two columns
-            if expand_core or expand_aov:
-                content_split = box.split(factor=0.5)
-                
-                # Left column - Core Passes
-                core_col = content_split.column()
-                if expand_core:
-                    core_col.prop(shotput, "core_override", text="Core Override")
-                    row = core_col.row()
-                    row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
-                    col = row.column(align=True)
-                    icon_add_core = UIHelper.get_icon('add')
-                    col.operator("shotput.core_pass_add", text="", **icon_add_core)
-                    icon_remove_core = UIHelper.get_icon('remove')
-                    col.operator("shotput.core_pass_remove", text="", **icon_remove_core)
-                    col.separator()
-                    icon_up_core = UIHelper.get_icon('tria_up')
-                    col.operator("shotput.core_pass_move_up", text="", **icon_up_core)
-                    icon_down_core = UIHelper.get_icon('tria_down')
-                    col.operator("shotput.core_pass_move_down", text="", **icon_down_core)
-                
-                # Right column - AOV Passes
-                aov_col = content_split.column()
-                if expand_aov:
-                    aov_col.prop(shotput, "aov_override", text="AOV Override")
-                  
-                    row = aov_col.row()
-                    row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
-                    col = row.column(align=True)
-                    icon_add_aov = UIHelper.get_icon('add')
-                    col.operator("shotput.aov_pass_add", text="", **icon_add_aov)
-                    icon_remove_aov = UIHelper.get_icon('remove')
-                    col.operator("shotput.aov_pass_remove", text="", **icon_remove_aov)
-                    col.separator()
-                    icon_up_aov = UIHelper.get_icon('tria_up')
-                    col.operator("shotput.aov_pass_move_up", text="", **icon_up_aov)
-                    icon_down_aov = UIHelper.get_icon('tria_down')
-                    col.operator("shotput.aov_pass_move_down", text="", **icon_down_aov)
-                    
-                    # Scan button for shader AOVs
-                    scan_row = aov_col.row()
-                    UIHelper.icon_operator(scan_row, "shotput.scan_shader_aovs", "Scan AOVs", 'viewzoom')
-
-            # Data Passes Section (collapsible, closed by default)
-            box = layout.box()
-            row = box.row()
-            expand_data = shotput.expand_data_ui if hasattr(shotput, 'expand_data_ui') else False
-            row.prop(shotput, "expand_data_ui", 
-                    icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
+    
+    def draw_pass_lists_section(self, layout, shotput):
+        """Draw Core and AOV pass lists (manual mode only)"""
+        if shotput.use_render_layer_channels:
+            return  # Skip in render layer mode
+        
+        box = layout.box()
+        
+        # Header row with both expand toggles
+        row = box.row()
+        expand_core = shotput.expand_core_ui if hasattr(shotput, 'expand_core_ui') else False
+        expand_aov = shotput.expand_aov_ui if hasattr(shotput, 'expand_aov_ui') else False
+        
+        # Core header (left half)
+        split = row.split(factor=0.5)
+        core_row = split.row()
+        core_row.prop(shotput, "expand_core_ui", 
+                     icon="TRIA_DOWN" if expand_core else "TRIA_RIGHT", 
+                     icon_only=True, emboss=False)
+        UIHelper.icon_label(core_row, "Core Passes", 'core')
+        
+        # AOV header (right half)
+        aov_row = split.row()
+        aov_row.prop(shotput, "expand_aov_ui", 
+                    icon="TRIA_DOWN" if expand_aov else "TRIA_RIGHT", 
                     icon_only=True, emboss=False)
-            UIHelper.icon_label(row, "Data Passes", 'data')
+        UIHelper.icon_label(aov_row, "AOV Passes", 'aov')
+        
+        # Content row - split into two columns
+        if expand_core or expand_aov:
+            content_split = box.split(factor=0.5)
             
-            if expand_data:
-                # Basic data passes in 3x2 grid with toggle buttons
-                box.label(text="Basic Passes")
-                grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
-                grid.prop(shotput, "z", text="Depth", toggle=True)
-                grid.prop(shotput, "normal", text="Normal", toggle=True)
-                grid.prop(shotput, "vector", text="Vector", toggle=True)
-                grid.prop(shotput, "position", text="UV", toggle=True)
-                grid.prop(shotput, "mist", text="Mist", toggle=True)
-                grid.prop(shotput, "occlusion", text="AO", toggle=True)
-                
-                # Volume passes with label and 2x1 grid
-                box.separator()
-                box.label(text="Volume")
-                volume_grid = box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
-                volume_grid.prop(shotput, "volume_direct", text="Direct", toggle=True)
-                volume_grid.prop(shotput, "volume_indirect", text="Indirect", toggle=True)
-                
-                # Cryptomatte passes with label and 3x1 grid
-                box.separator()
-                box.label(text="Cryptomatte")
-                crypto_grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
-                crypto_grid.prop(shotput, "crypto_object", text="Object", toggle=True)
-                crypto_grid.prop(shotput, "crypto_material", text="Material", toggle=True)
-                crypto_grid.prop(shotput, "crypto_asset", text="Asset", toggle=True)
-
-        # Preset Management Box
+            # Left column - Core Passes
+            if expand_core:
+                self._draw_core_passes_list(content_split.column(), shotput)
+            
+            # Right column - AOV Passes
+            if expand_aov:
+                self._draw_aov_passes_list(content_split.column(), shotput)
+    
+    def _draw_core_passes_list(self, col, shotput):
+        """Helper: Draw core passes UIList with controls"""
+        col.prop(shotput, "core_override", text="Core Override")
+        row = col.row()
+        row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
+        control_col = row.column(align=True)
+        
+        icon_add = UIHelper.get_icon('add')
+        control_col.operator("shotput.core_pass_add", text="", **icon_add)
+        icon_remove = UIHelper.get_icon('remove')
+        control_col.operator("shotput.core_pass_remove", text="", **icon_remove)
+        control_col.separator()
+        icon_up = UIHelper.get_icon('tria_up')
+        control_col.operator("shotput.core_pass_move_up", text="", **icon_up)
+        icon_down = UIHelper.get_icon('tria_down')
+        control_col.operator("shotput.core_pass_move_down", text="", **icon_down)
+    
+    def _draw_aov_passes_list(self, col, shotput):
+        """Helper: Draw AOV passes UIList with controls"""
+        col.prop(shotput, "aov_override", text="AOV Override")
+        row = col.row()
+        row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
+        control_col = row.column(align=True)
+        
+        icon_add = UIHelper.get_icon('add')
+        control_col.operator("shotput.aov_pass_add", text="", **icon_add)
+        icon_remove = UIHelper.get_icon('remove')
+        control_col.operator("shotput.aov_pass_remove", text="", **icon_remove)
+        control_col.separator()
+        icon_up = UIHelper.get_icon('tria_up')
+        control_col.operator("shotput.aov_pass_move_up", text="", **icon_up)
+        icon_down = UIHelper.get_icon('tria_down')
+        control_col.operator("shotput.aov_pass_move_down", text="", **icon_down)
+        
+        # Scan button for shader AOVs
+        scan_row = col.row()
+        UIHelper.icon_operator(scan_row, "shotput.scan_shader_aovs", "Scan AOVs", 'viewzoom')
+    
+    def draw_data_passes_section(self, layout, shotput):
+        """Draw data passes section (manual mode only)"""
+        if shotput.use_render_layer_channels:
+            return  # Skip in render layer mode
+        
+        box = layout.box()
+        row = box.row()
+        expand_data = shotput.expand_data_ui if hasattr(shotput, 'expand_data_ui') else False
+        row.prop(shotput, "expand_data_ui", 
+                icon="TRIA_DOWN" if expand_data else "TRIA_RIGHT", 
+                icon_only=True, emboss=False)
+        UIHelper.icon_label(row, "Data Passes", 'data')
+        
+        if expand_data:
+            # Basic data passes in 3x2 grid with toggle buttons
+            box.label(text="Basic Passes")
+            grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+            grid.prop(shotput, "z", text="Depth", toggle=True)
+            grid.prop(shotput, "normal", text="Normal", toggle=True)
+            grid.prop(shotput, "vector", text="Vector", toggle=True)
+            grid.prop(shotput, "position", text="UV", toggle=True)
+            grid.prop(shotput, "mist", text="Mist", toggle=True)
+            grid.prop(shotput, "occlusion", text="AO", toggle=True)
+            
+            # Volume passes with label and 2x1 grid
+            box.separator()
+            box.label(text="Volume")
+            volume_grid = box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
+            volume_grid.prop(shotput, "volume_direct", text="Direct", toggle=True)
+            volume_grid.prop(shotput, "volume_indirect", text="Indirect", toggle=True)
+            
+            # Cryptomatte passes with label and 3x1 grid
+            box.separator()
+            box.label(text="Cryptomatte")
+            crypto_grid = box.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=True)
+            crypto_grid.prop(shotput, "crypto_object", text="Object", toggle=True)
+            crypto_grid.prop(shotput, "crypto_material", text="Material", toggle=True)
+            crypto_grid.prop(shotput, "crypto_asset", text="Asset", toggle=True)
+    
+    def draw_presets_section(self, layout, shotput):
+        """Draw preset management box"""
         box = layout.box()
         UIHelper.icon_label(box, "Preset Management", 'preset')
         
-        # Preset buttons
         row = box.row()
         
         # Add environment preset menu button if SHOTPUT_PRESET_PATH is set and has JSON files
@@ -1197,6 +1012,19 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         
         UIHelper.icon_operator(row, "shotput.load_preset", "Load Pass Setup", 'import')
         UIHelper.icon_operator(row, "shotput.save_preset", "Save Pass Setup", 'export')
+        
+    def draw(self, context):
+        layout = self.layout
+        shotput = context.scene.shotput
+        
+        # Draw all sections using helper methods
+        self.draw_header_section(layout, shotput)
+        self.draw_properties_section(layout, shotput)
+        self.draw_passes_section(layout, shotput)
+        self.draw_path_tokens_section(layout, shotput)
+        self.draw_pass_lists_section(layout, shotput)
+        self.draw_data_passes_section(layout, shotput)
+        self.draw_presets_section(layout, shotput)
 
 # Node panel for File Output nodes with Shotput data
 class TL_PT_Shotput_Node_UI(bpy.types.Panel):
@@ -1215,41 +1043,33 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                 context.active_node.type in ['OUTPUT_FILE', 'COMPOSITE'] and
                 hasattr(context.active_node, 'shotput_data'))
     
-    def draw(self, context):
-        layout = self.layout
-        node = context.active_node
-        shotput_data = node.shotput_data
-        
-        # Description/Help Box - different for File Output vs Composite nodes
+    def draw_description_section(self, layout, node):
+        """Draw node description/help box"""
         box = layout.box()
         col = box.column(align=True)
         
         if node.type == 'COMPOSITE':
             UIHelper.icon_label(col, "Shotput Composite Node", 'info')
             col.separator(factor=0.5)
-            
-            # Multi-line description with smaller text
             col.scale_y = 0.8
             col.label(text="This Composite node will sync the scene's render filepath when 'Update Version' is called")
         else:
             UIHelper.icon_label(col, "Shotput File Output Node", 'info')
             col.separator(factor=0.)
-            
-            # Multi-line description with smaller text
             col.scale_y = 0.8
             col.label(text="This File Output node is configured for token-based render pathing.")
-  
-        # Node Properties Box
+    
+    def draw_properties_section(self, layout, shotput_data, ayon_detected):
+        """Draw node properties box with version and AYON toggle"""
         box = layout.box()
         
         # Header row with title and version
         if shotput_data.shotput_version:
             header_row = box.row()
             UIHelper.icon_label(header_row, "Shotput Properties", 'settings')
-            # Add some spacing to push version to the right
             header_row.separator()
             version_label = header_row.row()
-            version_label.enabled = False  # Make only the version read-only (greyed out)
+            version_label.enabled = False
             version_label.label(text=f"Version: {shotput_data.shotput_version}")
         else:
             UIHelper.icon_label(box, "Shotput Properties", 'settings')
@@ -1259,8 +1079,6 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         box.prop(shotput_data, "variant", text="Variant")
         
         # AYON Mode Toggle - only show if AYON is detected
-        import os
-        ayon_detected = bool(os.getenv("AYON_PROJECT_NAME"))
         if ayon_detected:
             row = box.row()
             icon_ayon = UIHelper.get_icon('ayon')
@@ -1274,17 +1092,18 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                         text="AYON Mode (Off)", 
                         toggle=True,
                         icon='CANCEL')
-        
+    
+    def draw_path_linking_section(self, layout, shotput_data, ayon_detected):
+        """Draw path linking controls and configuration"""
+        box = layout.box()
         UIHelper.icon_label(box, "Path Configuration", 'file_folder')
         
         # Path linking controls - disabled in AYON mode
         if ayon_detected and shotput_data.use_ayon_output_style:
-            # AYON mode active - path linking not available
             row = box.row()
             row.alert = True
             row.label(text="Path Linking is not needed in AYON", icon='INFO')
         else:
-            # Normal mode - show path linking controls
             row = box.row()
             if shotput_data.path_linked:
                 icon_linked = UIHelper.get_icon('linked')
@@ -1300,41 +1119,9 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
                             **icon_unlinked)
         
         if shotput_data.path_linked:
-            # Show path linking UI
-            box.prop(shotput_data, "linked_node", text="Linked Node")
-            
-            # Show the linked node's path if available
-            linked_node = shotput_data.node
-            if linked_node:
-                row = box.row()
-                icon_file_folder_linked = UIHelper.get_icon('file_folder')
-                row.label(text=f"Linked Path: {linked_node.base_path}", **icon_file_folder_linked)
-                row.enabled = False  # Make it read-only/grayed out
-            else:
-                row = box.row()
-                UIHelper.icon_label(row, "No valid linked node selected", 'error')
-                row.enabled = False
-            
-            # Append path field with consistent layout and token menu
-            row = box.row(align=True)
-            row.prop(shotput_data, "root_folder_token", text="Append Path")
-            UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
-            
-            # Show backup info if available
-            # if shotput_data.root_folder_token_backup:
-            #     row = box.row()
-            #     row.label(text="Original path backed up", icon='INFO')
-            #     row.enabled = False
+            self._draw_linked_path_config(box, shotput_data)
         else:
-            # Normal path configuration with token menu
-            # Make read-only if AYON mode is enabled
-            row = box.row(align=True)
-            if ayon_detected and shotput_data.use_ayon_output_style:
-                row.enabled = False
-                row.prop(shotput_data, "root_folder_token", text="AYON Root Folder")
-            else:
-                row.prop(shotput_data, "root_folder_token", text="Root Folder")
-                UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
+            self._draw_normal_path_config(box, shotput_data, ayon_detected)
         
         # File name token - make read-only if AYON mode is enabled
         row = box.row(align=True)
@@ -1350,41 +1137,92 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         UIHelper.icon_operator(row, "shotput.open_output_folder", "Open Output Folder", 'folder_redirect')
         UIHelper.icon_operator(row, "shotput.lazy_hookup", "Connect to Render Layer", 'linked')
         
-        # Create Linked Composite button - only show for File Output nodes and when AYON mode is not active
-        if node.type == 'OUTPUT_FILE':
-            # Don't show if AYON mode is active (path linking not compatible)
-            if not (ayon_detected and shotput_data.use_ayon_output_style):
-                row = box.row()
-                UIHelper.icon_operator(row, "shotput.create_linked_composite", "Create Linked Composite Node", 'composite')
+        return box
+    
+    def _draw_linked_path_config(self, box, shotput_data):
+        """Helper: Draw linked path configuration"""
+        box.prop(shotput_data, "linked_node", text="Linked Node")
         
-        # Stored Passes UIList - only show for File Output nodes (not Composite nodes)
-        if node.type == 'OUTPUT_FILE':
-            box = layout.box()
+        # Show the linked node's path if available
+        linked_node = shotput_data.node
+        if linked_node:
             row = box.row()
-            expand_stored = shotput_data.expand_stored_ui if hasattr(shotput_data, 'expand_stored_ui') else False
-            row.prop(shotput_data, "expand_stored_ui", 
-                    icon="TRIA_DOWN" if expand_stored else "TRIA_RIGHT", 
-                    icon_only=True, emboss=False)
-            UIHelper.icon_label(row, "Output Passes (Advanced)", 'renderlayers')
+            icon_file_folder_linked = UIHelper.get_icon('file_folder')
+            row.label(text=f"Linked Path: {linked_node.base_path}", **icon_file_folder_linked)
+            row.enabled = False
+        else:
+            row = box.row()
+            UIHelper.icon_label(row, "No valid linked node selected", 'error')
+            row.enabled = False
+        
+        # Append path field with token menu
+        row = box.row(align=True)
+        row.prop(shotput_data, "root_folder_token", text="Append Path")
+        UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
+    
+    def _draw_normal_path_config(self, box, shotput_data, ayon_detected):
+        """Helper: Draw normal path configuration"""
+        row = box.row(align=True)
+        if ayon_detected and shotput_data.use_ayon_output_style:
+            row.enabled = False
+            row.prop(shotput_data, "root_folder_token", text="AYON Root Folder")
+        else:
+            row.prop(shotput_data, "root_folder_token", text="Root Folder")
+            UIHelper.icon_menu(row, "SHOTPUT_MT_token_menu_node_root", "", 'add')
+    
+    def draw_composite_button_section(self, layout, node, shotput_data, ayon_detected):
+        """Draw create linked composite button (File Output nodes only)"""
+        if node.type == 'OUTPUT_FILE':
+            if not (ayon_detected and shotput_data.use_ayon_output_style):
+                row = layout.row()
+                UIHelper.icon_operator(row, "shotput.create_linked_composite", "Create Linked Composite Node", 'composite')
+    
+    def draw_stored_passes_section(self, layout, node, shotput_data):
+        """Draw stored passes UIList (File Output nodes only)"""
+        if node.type != 'OUTPUT_FILE':
+            return
+        
+        box = layout.box()
+        row = box.row()
+        expand_stored = shotput_data.expand_stored_ui if hasattr(shotput_data, 'expand_stored_ui') else False
+        row.prop(shotput_data, "expand_stored_ui", 
+                icon="TRIA_DOWN" if expand_stored else "TRIA_RIGHT", 
+                icon_only=True, emboss=False)
+        UIHelper.icon_label(row, "Output Passes (Advanced)", 'renderlayers')
+        
+        if expand_stored:
+            # Sync button (one-way: stored passes -> node slots)
+            row = box.row()
+            UIHelper.icon_operator(row, "shotput.sync_node_passes", "Sync to Node Slots", 'file_refresh')
             
-            if expand_stored:
-                # Sync button (one-way: stored passes -> node slots)
-                row = box.row()
-                UIHelper.icon_operator(row, "shotput.sync_node_passes", "Sync to Node Slots", 'file_refresh')
-                
-                # UIList with controls
-                row = box.row()
-                row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
-                col = row.column(align=True)
-                icon_add_stored = UIHelper.get_icon('add')
-                col.operator("shotput.stored_pass_add", text="", **icon_add_stored)
-                icon_remove_stored = UIHelper.get_icon('remove')
-                col.operator("shotput.stored_pass_remove", text="", **icon_remove_stored)
-                col.separator()
-                icon_up_stored = UIHelper.get_icon('tria_up')
-                col.operator("shotput.stored_pass_move_up", text="", **icon_up_stored)
-                icon_down_stored = UIHelper.get_icon('tria_down')
-                col.operator("shotput.stored_pass_move_down", text="", **icon_down_stored)
+            # UIList with controls
+            row = box.row()
+            row.template_list("SHOTPUT_UL_StoredPasses", "", shotput_data, "stored_passes", shotput_data, "stored_passes_index", rows=3)
+            col = row.column(align=True)
+            icon_add_stored = UIHelper.get_icon('add')
+            col.operator("shotput.stored_pass_add", text="", **icon_add_stored)
+            icon_remove_stored = UIHelper.get_icon('remove')
+            col.operator("shotput.stored_pass_remove", text="", **icon_remove_stored)
+            col.separator()
+            icon_up_stored = UIHelper.get_icon('tria_up')
+            col.operator("shotput.stored_pass_move_up", text="", **icon_up_stored)
+            icon_down_stored = UIHelper.get_icon('tria_down')
+            col.operator("shotput.stored_pass_move_down", text="", **icon_down_stored)
+    
+    def draw(self, context):
+        layout = self.layout
+        node = context.active_node
+        shotput_data = node.shotput_data
+        
+        import os
+        ayon_detected = bool(os.getenv("AYON_PROJECT_NAME"))
+        
+        # Draw all sections using helper methods
+        self.draw_description_section(layout, node)
+        self.draw_properties_section(layout, shotput_data, ayon_detected)
+        self.draw_path_linking_section(layout, shotput_data, ayon_detected)
+        self.draw_composite_button_section(layout, node, shotput_data, ayon_detected)
+        self.draw_stored_passes_section(layout, node, shotput_data)
 
 
 class NODE_MT_shotput(bpy.types.Menu):
