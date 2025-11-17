@@ -18,9 +18,9 @@ bl_info = {
     "blender": (4, 4, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
-    "version": (1, 2, 2),
+    "version": (1, 2, 3),
     "location": "Compositor Tab > Sidebar",
-    "doc_url": "https://www.thelineanimation.com/",
+    "doc_url": "https://github.com/Lonerobot/b3d-shotput",
     "wiki_url": "https://www.thelineanimation.com",
     "warning": "",  # Optional: for development versions
     "support": "COMMUNITY",  # OFFICIAL, COMMUNITY, or TESTING
