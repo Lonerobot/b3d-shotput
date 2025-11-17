@@ -658,9 +658,16 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         comp_props.normal_root_folder_token = core_node.shotput_data.root_folder_token
         comp_props.normal_file_name_token = core_node.shotput_data.file_name_token
         
+        # Check if AYON context is detected and enable AYON mode if so
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node, is_ayon_context
+        if is_ayon_context():
+            # Enable AYON mode before applying tokens so the check passes
+            comp_props.use_ayon_output_style = True
+            print("Shotput: AYON context detected, enabling AYON mode on composite node")
+        
         # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
-        from ..utils.ayon_utils import apply_ayon_tokens_to_node
-        if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
+        ayon_applied = apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True)
+        if ayon_applied:
             print("Shotput: Applied AYON-specific output tokens to composite node")
         else:
             # No AYON detected, use tokens from core node
@@ -676,15 +683,21 @@ class OT_Create_Core_Passes(bpy.types.Operator):
             comp_props.version = getattr(shotput_props, 'version', 'v001')
             print(f"Shotput: Composite inheriting version '{comp_props.version}' from scene props")
         
-        # Set up path linking to the core node (but make it toggleable)
-        # First set the full root folder token as if it were created normally
-        comp_props.root_folder_token = shotput_props.root_folder_token
-        
-        # Then enable path linking, which will trigger the backup system
-        comp_props.path_linked = True  # Enable path linking by default
-        comp_props.root_folder_token_backup = shotput_props.root_folder_token  # Back up the original
-        comp_props.linked_node = core_node.name  # Link to the core node
-        comp_props.root_folder_token = "{passname}"  # Use dynamic token that resolves to pass_name
+        # Set up path linking to the core node (but only if AYON is NOT enabled)
+        # AYON mode defines full paths via tokens, so path linking is incompatible
+        if not ayon_applied:
+            # First set the full root folder token as if it were created normally
+            comp_props.root_folder_token = shotput_props.root_folder_token
+            
+            # Then enable path linking, which will trigger the backup system
+            comp_props.path_linked = True  # Enable path linking by default
+            comp_props.root_folder_token_backup = shotput_props.root_folder_token  # Back up the original
+            comp_props.linked_node = core_node.name  # Link to the core node
+            comp_props.root_folder_token = "{passname}"  # Use dynamic token that resolves to pass_name
+        else:
+            # In AYON mode, path linking is not used - AYON tokens define the full path
+            comp_props.path_linked = False
+            print("Shotput: Path linking disabled for composite node in AYON mode")
         
         # Also store the linked node name as a backup custom property
         composite_node["shotput_linked_node_backup"] = core_node.name
@@ -908,9 +921,16 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         comp_props.normal_root_folder_token = getattr(source_props, 'root_folder_token', '')
         comp_props.normal_file_name_token = getattr(source_props, 'file_name_token', '')
         
+        # Check if AYON context is detected and enable AYON mode if so
+        from ..utils.ayon_utils import apply_ayon_tokens_to_node, is_ayon_context
+        if is_ayon_context():
+            # Enable AYON mode before applying tokens so the check passes
+            comp_props.use_ayon_output_style = True
+            print("Shotput: AYON context detected, enabling AYON mode on composite node")
+        
         # Apply AYON tokens if AYON is detected (will override root_folder_token and file_name_token)
-        from ..utils.ayon_utils import apply_ayon_tokens_to_node
-        if apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True):
+        ayon_applied = apply_ayon_tokens_to_node(composite_node, comp_props, is_composite=True)
+        if ayon_applied:
             print("Shotput: Applied AYON-specific output tokens to standalone composite node")
         else:
             # No AYON detected, use tokens from source
@@ -926,8 +946,9 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
             comp_props.version = getattr(source_props, 'version', 'v001')
             print(f"Shotput: Composite inheriting version '{comp_props.version}' from source props")
         
-        # Set up path linking if we have a linked node
-        if linked_node:
+        # Set up path linking if we have a linked node (but only if AYON is NOT enabled)
+        # AYON mode defines full paths via tokens, so path linking is incompatible
+        if linked_node and not ayon_applied:
             # First set the full root folder token as if it were created normally
             comp_props.root_folder_token = getattr(source_props, 'root_folder_token', '')
             
@@ -950,11 +971,15 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
             comp_props.root_folder_token = "{passname}"  # Use dynamic token that resolves to pass_name
             
             print(f"Shotput: Composite node path-linked to '{linked_node.name}' with 'composite' subfolder")
-        else:
-            # No linked node - use source properties directly
+        elif not ayon_applied:
+            # No linked node and no AYON - use source properties directly
             comp_props.root_folder_token = getattr(source_props, 'root_folder_token', '')
             comp_props.path_linked = False
             print("Shotput: Composite node created without path linking")
+        else:
+            # AYON applied but no linked node - disable path linking
+            comp_props.path_linked = False
+            print("Shotput: Composite node created in AYON mode without path linking")
         
         # Add single stored pass for composite (for UI consistency)
         comp_props.stored_passes.clear()
