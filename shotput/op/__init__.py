@@ -5,6 +5,7 @@ from .create_core_passes import OT_Create_Core_Passes, OT_Create_Linked_Composit
 from .create_aov_passes import OT_Create_AOV_Passes
 from .create_data_passes import OT_Create_Data_Passes
 from .scan_shader_aovs import OT_Scan_Shader_AOVs
+from .import_channels_from_node import OT_Import_Channels_From_Node
 from .versioning import OT_Update_Version, OT_Preview_Paths, OT_Token_Help, OT_Load_Preset, OT_Save_Preset
 from .lazy_hookup import OT_Lazy_Hookup
 
@@ -18,6 +19,7 @@ classes = (
         OT_Create_AOV_Passes,
         OT_Create_Data_Passes,
         OT_Scan_Shader_AOVs,
+        OT_Import_Channels_From_Node,
         OT_Update_Version,
         OT_Preview_Paths,
         OT_Token_Help,

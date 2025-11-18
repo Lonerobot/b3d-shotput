@@ -930,6 +930,10 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         control_col.operator("shotput.core_pass_move_up", text="", **icon_up)
         icon_down = UIHelper.get_icon('tria_down')
         control_col.operator("shotput.core_pass_move_down", text="", **icon_down)
+        control_col.separator()
+        # Import channels from node button
+        import_op = control_col.operator("shotput.import_channels_from_node", text="", icon='COPYDOWN')
+        import_op.target_list = 'core'
     
     def _draw_aov_passes_list(self, col, shotput):
         """Helper: Draw AOV passes UIList with controls"""
@@ -947,10 +951,14 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
         control_col.operator("shotput.aov_pass_move_up", text="", **icon_up)
         icon_down = UIHelper.get_icon('tria_down')
         control_col.operator("shotput.aov_pass_move_down", text="", **icon_down)
-        
-        # Scan button for shader AOVs
-        scan_row = col.row()
-        UIHelper.icon_operator(scan_row, "shotput.scan_shader_aovs", "Scan AOVs", 'viewzoom')
+        control_col.separator()
+        # Import channels from node button
+        import_op = control_col.operator("shotput.import_channels_from_node", text="", icon='COPYDOWN')
+        import_op.target_list = 'aov'
+        control_col.separator()
+        # Scan shader AOVs button (icon only)
+        icon_viewzoom = UIHelper.get_icon('viewzoom')
+        control_col.operator("shotput.scan_shader_aovs", text="", **icon_viewzoom)
     
     def draw_data_passes_section(self, layout, shotput):
         """Draw data passes section (manual mode only)"""
