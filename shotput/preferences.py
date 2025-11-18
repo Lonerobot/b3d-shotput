@@ -226,6 +226,30 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         split.label(text="AYON Composite File Token:")
         split.prop(self, "ayon_composite_file_name_token", text="")
         
+        # Environment Information
+        box = layout.box()
+        icon_env = custom_icons.get_icon_id_or_fallback('preferences')
+        box.label(text="Environment Information", **icon_env)
+        col = box.column(align=True)
+        
+        # Check for SHOTPUT_PRESET_PATH environment variable
+        shotput_preset_path = os.getenv("SHOTPUT_PRESET_PATH")
+        if shotput_preset_path:
+            row = col.row()
+            row.alert = True
+            row.label(text=f"Preset Path: {shotput_preset_path}", icon="FILE_FOLDER")
+        else:
+            col.label(text="SHOTPUT_PRESET_PATH not detected", icon="INFO")
+            col.separator(factor=0.5)
+            col.label(text="Set SHOTPUT_PRESET_PATH environment variable to specify")
+            col.label(text="a custom location for Shotput preset files.")
+            col.separator(factor=0.5)
+            col.label(text="Example (Linux/Mac):")
+            col.label(text='  export SHOTPUT_PRESET_PATH="/path/to/presets"')
+            col.separator(factor=0.5)
+            col.label(text="Example (Windows):")
+            col.label(text='  set SHOTPUT_PRESET_PATH="C:\\path\\to\\presets"')
+        
         # Node Color Settings
         box = layout.box()
         row = box.row()
