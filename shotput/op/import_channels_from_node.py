@@ -1,3 +1,27 @@
+"""
+Import Channels from Node Operator
+
+This operator allows users to import channels from a selected File Output node
+back into the Shotput UI pass lists (Core Passes or AOV Passes).
+
+Usage:
+1. Select a File Output node in the Compositor
+2. Click the import icon button (copy/down arrow) on the Core Passes or AOV Passes panel
+3. The operator will read the channels/passes from the node and import them into the list
+
+Features:
+- Works with both Shotput File Output nodes and standard Blender File Output nodes
+- Reads from stored_passes (for Shotput nodes) or file_slots (for any File Output node)
+- Automatically cleans up channel names (removes extensions, frame numbers, etc.)
+- Clears existing passes before importing to avoid duplicates
+- Provides feedback on the number of channels imported
+
+This is particularly useful for:
+- Converting custom node setups into Shotput presets
+- Sharing render configurations between different blend files
+- Quickly recreating pass lists from existing compositor setups
+"""
+
 import bpy
 
 from ..utils.log import LoggerFactory
