@@ -243,12 +243,6 @@ class ShotputPreferences(bpy.types.AddonPreferences):
             col.separator(factor=0.5)
             col.label(text="Set SHOTPUT_PRESET_PATH environment variable to specify")
             col.label(text="a custom location for Shotput preset files.")
-            col.separator(factor=0.5)
-            col.label(text="Example (Linux/Mac):")
-            col.label(text='  export SHOTPUT_PRESET_PATH="/path/to/presets"')
-            col.separator(factor=0.5)
-            col.label(text="Example (Windows):")
-            col.label(text='  set SHOTPUT_PRESET_PATH="C:\\path\\to\\presets"')
         
         # Node Color Settings
         box = layout.box()
