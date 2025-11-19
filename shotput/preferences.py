@@ -29,13 +29,6 @@ class ShotputPreferences(bpy.types.AddonPreferences):
     """Preferences class: Preferences for the Shotput add-on"""
     bl_idname = __package_name__
 
-    # versioning preferences
-    auto_create_version_folders: bpy.props.BoolProperty(
-        name="Auto-Create Version Folders",
-        description="Automatically create version directories when calculating next version (may affect version calculations)",
-        default=False
-    )
-    
     # shotput output preferences
     subpath_token_value: bpy.props.StringProperty(
         name="Subpath Token Value",
@@ -154,19 +147,7 @@ class ShotputPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
-
-        layout.use_property_decorate = False     
- 
-        # General Settings
-        box = layout.box()
-        icon_preferences = custom_icons.get_icon_id_or_fallback('preferences')
-        box.label(text="General Settings", **icon_preferences)
-        col = box.column(align=True)
-        
-        split = col.split(factor=0.5, align=True)
-        split.label(text="Auto-Create Version Folders:")
-        split.prop(self, "auto_create_version_folders", text="")
-        
+        layout.use_property_decorate = False    
         # Core Pass Settings
         box = layout.box()
         icon_render_result = custom_icons.get_icon_id_or_fallback('render_result')
@@ -210,6 +191,8 @@ class ShotputPreferences(bpy.types.AddonPreferences):
             row.alert = True
             row.label(text=f"AYON Active: {os.getenv('AYON_PROJECT_NAME')}", icon="NODE_SOCKET_GEOMETRY")
         
+        col.separator(factor=0.5)
+        
         split = col.split(factor=0.5, align=True)
         split.label(text="AYON Root Folder Token:")
         split.prop(self, "ayon_root_folder_token", text="")
@@ -228,21 +211,34 @@ class ShotputPreferences(bpy.types.AddonPreferences):
         
         # Environment Information
         box = layout.box()
+        row = box.row()
         icon_env = custom_icons.get_icon_id_or_fallback('preferences')
-        box.label(text="Environment Information", **icon_env)
+        row.label(text="Environment Information", **icon_env)
+
+        
+        # Add button to open preset path if it exists
+        shotput_preset_path = os.getenv("SHOTPUT_PRESET_PATH")
+        if shotput_preset_path:
+            icon_folder = custom_icons.get_icon_id_or_fallback('file_folder')
+            op = row.operator("shotput.open_output_folder", text="Open Preset Path", **icon_folder)
+            op.folder_type = 'PRESET'
+        
         col = box.column(align=True)
         
         # Check for SHOTPUT_PRESET_PATH environment variable
-        shotput_preset_path = os.getenv("SHOTPUT_PRESET_PATH")
         if shotput_preset_path:
             row = col.row()
             row.alert = True
-            row.label(text=f"Preset Path: {shotput_preset_path}", icon="FILE_FOLDER")
+            row.label(text="SHOTPUT_PRESET_PATH is present.")
+            row = col.row()
+            row.alert = False
+            row.label(text=f"{shotput_preset_path}", icon="FILE_FOLDER")
         else:
+            col.alert = True
             col.label(text="SHOTPUT_PRESET_PATH not detected", icon="INFO")
             col.separator(factor=0.5)
-            col.label(text="Set SHOTPUT_PRESET_PATH environment variable to specify")
-            col.label(text="a custom location for Shotput preset files.")
+            col.alert = False
+            col.label(text="Set this environment variable to specify a custom location for Shotput preset files.")
         
         # Node Color Settings
         box = layout.box()

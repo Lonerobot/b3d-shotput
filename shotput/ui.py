@@ -902,17 +902,18 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
                     icon_only=True, emboss=False)
         UIHelper.icon_label(aov_row, "AOV Passes", 'aov')
         
-        # Content row - split into two columns
-        if expand_core or expand_aov:
+        # Content row - only split if BOTH are expanded
+        if expand_core and expand_aov:
+            # Both expanded - use split layout
             content_split = box.split(factor=0.5)
-            
-            # Left column - Core Passes
-            if expand_core:
-                self._draw_core_passes_list(content_split.column(), shotput)
-            
-            # Right column - AOV Passes
-            if expand_aov:
-                self._draw_aov_passes_list(content_split.column(), shotput)
+            self._draw_core_passes_list(content_split.column(), shotput)
+            self._draw_aov_passes_list(content_split.column(), shotput)
+        elif expand_core:
+            # Only core expanded - use full width
+            self._draw_core_passes_list(box.column(), shotput)
+        elif expand_aov:
+            # Only AOV expanded - use full width
+            self._draw_aov_passes_list(box.column(), shotput)
     
     def _draw_core_passes_list(self, col, shotput):
         """Helper: Draw core passes UIList with controls"""

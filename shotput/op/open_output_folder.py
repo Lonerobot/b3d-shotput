@@ -22,32 +22,62 @@ class OT_Open_Output_Folder(bpy.types.Operator):
     bl_label = "Open Output Folder"
     bl_options = {'REGISTER', 'UNDO'}
     
+    # Property to specify what type of folder to open
+    folder_type: bpy.props.EnumProperty(
+        name="Folder Type",
+        description="Type of folder to open",
+        items=[
+            ('OUTPUT', 'Output Folder', 'Open output folder from node'),
+            ('PRESET', 'Preset Path', 'Open preset path from environment variable'),
+        ],
+        default='OUTPUT'
+    )
+    
     @classmethod
     def poll(cls, context):
-        """Enable this operator when there are Shotput file output nodes in the scene or when one is selected."""
-        # Check if we're in compositor workspace with nodes enabled
-        if not context.scene.use_nodes:
-            return False
+        """Enable this operator when there are Shotput file output nodes in the scene or when opening preset path."""
+        # Always allow preset path opening (will be handled in execute)
+        return True
+    
+    def openPresetPath(self, context):
+        """Open the SHOTPUT_PRESET_PATH folder from environment variable."""
+        import os
         
-        # Check if there's a node tree
-        tree = context.scene.node_tree
-        if not tree:
-            return False
+        preset_path = os.getenv("SHOTPUT_PRESET_PATH")
         
-        # Check if there's an active file output node with Shotput properties (preferred)
-        active_node = tree.nodes.active
-        if active_node and active_node.type == 'OUTPUT_FILE' and hasattr(active_node, 'shotput_data'):
-            if active_node.shotput_data.root_folder_token:
-                return True
+        if not preset_path:
+            show_message_box(
+                message="SHOTPUT_PRESET_PATH environment variable is not set.\n\nSet this variable to specify a custom location for Shotput preset files.",
+                title="Preset Path Not Set",
+                icon='INFO'
+            )
+            self.report({'WARNING'}, "SHOTPUT_PRESET_PATH environment variable not set")
+            return {'CANCELLED'}
         
-        # Otherwise, check if there are any Shotput file output nodes in the scene
-        for node in tree.nodes:
-            if (node.type == 'OUTPUT_FILE' and 
-                hasattr(node, 'shotput_data') and 
-                node.shotput_data.root_folder_token):
-                return True
+        # Convert to Path object
+        preset_dir = Path(preset_path)
         
-        return False
+        if preset_dir.exists():
+            # Open the folder using Windows explorer
+            subprocess.run(['explorer', str(preset_dir)], check=False)
+            self.report({'INFO'}, f"Opened preset path: {preset_dir}")
+            logger.info(f"Opened SHOTPUT_PRESET_PATH: {preset_dir}")
+            return {'FINISHED'}
+        else:
+            # Try to create the directory if it doesn't exist
+            try:
+                preset_dir.mkdir(parents=True, exist_ok=True)
+                subprocess.run(['explorer', str(preset_dir)], check=False)
+                self.report({'INFO'}, f"Created and opened preset path: {preset_dir}")
+                logger.info(f"Created and opened SHOTPUT_PRESET_PATH: {preset_dir}")
+                return {'FINISHED'}
+            except Exception as e:
+                show_message_box(
+                    message=f"Preset path doesn't exist and couldn't be created:\n{preset_dir}\n\nError: {str(e)}",
+                    title="Directory Not Found"
+                )
+                self.report({'ERROR'}, f"Could not access or create preset path: {preset_dir}")
+                return {'CANCELLED'}
     
     def openFolder(self, context):
         """Open the output folder for the active Shotput file output node or prompt to select one."""
@@ -135,6 +165,30 @@ class OT_Open_Output_Folder(bpy.types.Operator):
             self.report({'ERROR'}, f"Error parsing root folder token: {str(e)}")
     
     def execute(self, context):
-        self.openFolder(context)
-        return {'FINISHED'}    
+        if self.folder_type == 'PRESET':
+            return self.openPresetPath(context)
+        elif self.folder_type == 'OUTPUT':
+            # Check if we can open output folder (need nodes)
+            if not context.scene.use_nodes or not context.scene.node_tree:
+                self.report({'ERROR'}, "No compositor nodes available")
+                return {'CANCELLED'}
+            
+            # Check if there are any Shotput file output nodes
+            tree = context.scene.node_tree
+            has_shotput_nodes = False
+            for node in tree.nodes:
+                if (node.type == 'OUTPUT_FILE' and 
+                    hasattr(node, 'shotput_data') and 
+                    node.shotput_data.root_folder_token):
+                    has_shotput_nodes = True
+                    break
+            
+            if not has_shotput_nodes:
+                self.report({'ERROR'}, "No Shotput file output nodes found in the scene")
+                return {'CANCELLED'}
+            
+            self.openFolder(context)
+            return {'FINISHED'}
+        
+        return {'CANCELLED'}    
         
