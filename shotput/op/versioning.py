@@ -1517,7 +1517,7 @@ class OT_Load_Preset(bpy.types.Operator):
     def execute(self, context):
         try:
             import json
-            from ..utils.defaults import is_valid_shotput_preset
+            from ..utils.defaults import is_valid_shotput_preset, migrate_legacy_tokens
             
             # Load JSON file
             with open(self.filepath, 'r', encoding='utf-8') as f:
@@ -1527,6 +1527,12 @@ class OT_Load_Preset(bpy.types.Operator):
             if not is_valid_shotput_preset(data):
                 self.report({'ERROR'}, "Invalid Shotput preset file structure")
                 return {'CANCELLED'}
+            
+            # Migrate legacy tokens
+            if 'root_folder_token' in data:
+                data['root_folder_token'] = migrate_legacy_tokens(data['root_folder_token'])
+            if 'file_name_token' in data:
+                data['file_name_token'] = migrate_legacy_tokens(data['file_name_token'])
             
             # Apply preset to scene properties
             scene = context.scene

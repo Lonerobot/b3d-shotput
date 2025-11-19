@@ -403,6 +403,13 @@ class SHOTPUT_OT_LoadPresetFromEnvironment(bpy.types.Operator):
                 self.report({'ERROR'}, "Invalid Shotput preset file structure")
                 return {'CANCELLED'}
             
+            # Migrate legacy tokens
+            from .utils.defaults import migrate_legacy_tokens
+            if 'root_folder_token' in data:
+                data['root_folder_token'] = migrate_legacy_tokens(data['root_folder_token'])
+            if 'file_name_token' in data:
+                data['file_name_token'] = migrate_legacy_tokens(data['file_name_token'])
+            
             # Apply preset to scene properties (same logic as OT_Load_Preset)
             scene = context.scene
             if not hasattr(scene, 'shotput'):

@@ -7,6 +7,16 @@ from .log import LoggerFactory
 logger = LoggerFactory.logger_obj()
 
 
+def migrate_legacy_tokens(token_string):
+    """Migrate legacy {renderlayer} tokens to {outputlayer}"""
+    if token_string and isinstance(token_string, str):
+        if '{renderlayer}' in token_string:
+            migrated = token_string.replace('{renderlayer}', '{outputlayer}')
+            logger.info(f"Migrated legacy token: '{token_string}' -> '{migrated}'")
+            return migrated
+    return token_string
+
+
 def is_valid_shotput_preset(data):
     """Check if JSON data has the required Shotput structure"""
     required_keys = ["core_passes", "aovs", "data_passes"]
@@ -68,6 +78,12 @@ def load_default_passes():
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if is_valid_shotput_preset(data):
+                    # Migrate legacy tokens
+                    if 'root_folder_token' in data:
+                        data['root_folder_token'] = migrate_legacy_tokens(data['root_folder_token'])
+                    if 'file_name_token' in data:
+                        data['file_name_token'] = migrate_legacy_tokens(data['file_name_token'])
+                    
                     logger.info(f"Successfully loaded valid preset from {json_path}")
                     return data
                 else:
