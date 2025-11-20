@@ -931,7 +931,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
     
     def _draw_core_passes_list(self, col, shotput):
         """Helper: Draw core passes UIList with controls"""
-        col.prop(shotput, "core_override", text="Core Override")
+        col.prop(shotput, "core_override", text="Name Override")
         row = col.row()
         row.template_list("SHOTPUT_UL_CorePasses", "", shotput, "core_passes", shotput, "core_passes_index", rows=3)
         control_col = row.column(align=True)
@@ -952,7 +952,7 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
     
     def _draw_aov_passes_list(self, col, shotput):
         """Helper: Draw AOV passes UIList with controls"""
-        col.prop(shotput, "aov_override", text="AOV Override")
+        col.prop(shotput, "aov_override", text="Name Override")
         row = col.row()
         row.template_list("SHOTPUT_UL_AOVPasses", "", shotput, "aov_passes", shotput, "aov_passes_index", rows=3)
         control_col = row.column(align=True)
