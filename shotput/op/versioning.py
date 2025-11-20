@@ -1277,10 +1277,10 @@ class OT_Token_Help(bpy.types.Operator):
             
             core_tokens = [
                 ('workdir', workdir_desc),
-                ('subpath', 'Subpath from preferences'),
-                ('renderlayer', 'Render layer name'),
+                ('subpath', 'Additional folder path from preferences'),
+                ('outputlayer', 'The name of the current output collection for output'),
                 ('passname', 'Pass name (beauty, diffuse, etc.)'),
-                ('variant', 'Version variant'),
+                ('variant', 'Variant Description (Can be any custom text)'),
                 ('version', 'Version number'),
             ]
             
