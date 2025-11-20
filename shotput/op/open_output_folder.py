@@ -18,7 +18,7 @@ def show_message_box(message="", title="Message Box", icon='INFO'):
 
 class OT_Open_Output_Folder(bpy.types.Operator):
     bl_idname = "shotput.open_output_folder"
-    bl_description = "Opens the output folder for Shotput file output nodes. Uses the active node if selected, otherwise opens the first available Shotput node's folder"
+    bl_description = "Opens the output folder for Shotput nodes (file output or composite). Falls back to composite nodes if no file output nodes exist, or to the main render output path if no Shotput nodes are found"
     bl_label = "Open Output Folder"
     bl_options = {'REGISTER', 'UNDO'}
     
@@ -38,6 +38,68 @@ class OT_Open_Output_Folder(bpy.types.Operator):
         """Enable this operator when there are Shotput file output nodes in the scene or when opening preset path."""
         # Always allow preset path opening (will be handled in execute)
         return True
+    
+    def openMainOutputFolder(self, context):
+        """Open the main output folder from Blender's render filepath as fallback."""
+        # Get the main render output path
+        render_filepath = context.scene.render.filepath
+        
+        if not render_filepath or render_filepath == '':
+            show_message_box(
+                message="No Shotput nodes found and no render output path is set.\n\nPlease either:\n1. Create Shotput nodes, or\n2. Set a render output path in the Output Properties",
+                title="No Output Location Found",
+                icon='ERROR'
+            )
+            self.report({'ERROR'}, "No Shotput nodes found and no render output path set")
+            return {'CANCELLED'}
+        
+        # Convert to Path object - get the directory part
+        output_path = Path(render_filepath)
+        
+        # If the path includes a filename, get just the directory
+        if output_path.suffix:
+            output_dir = output_path.parent
+        else:
+            output_dir = output_path
+        
+        # Make path absolute if it's relative
+        if not output_dir.is_absolute():
+            blend_file = bpy.data.filepath
+            if blend_file:
+                blend_dir = Path(blend_file).parent
+                output_dir = (blend_dir / output_dir).resolve()
+            else:
+                show_message_box(
+                    message="Render output path is relative but blend file is not saved.\n\nPlease save the blend file first or use an absolute path.",
+                    title="Cannot Resolve Output Path",
+                    icon='ERROR'
+                )
+                self.report({'ERROR'}, "Cannot resolve relative path - blend file not saved")
+                return {'CANCELLED'}
+        
+        logger.info(f'Open Folder - Using main render output path: {output_dir}')
+        print(f"Shotput: Using main render output path: {output_dir}")
+        
+        if output_dir.exists():
+            # Open the folder using Windows explorer
+            subprocess.run(['explorer', str(output_dir)], check=False)
+            self.report({'INFO'}, f"Opened main output folder: {output_dir}")
+            return {'FINISHED'}
+        else:
+            # Try to create the directory if it doesn't exist
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                subprocess.run(['explorer', str(output_dir)], check=False)
+                self.report({'INFO'}, f"Created and opened main output folder: {output_dir}")
+                return {'FINISHED'}
+            except Exception as e:
+                show_message_box(
+                    message=f"Main output directory doesn't exist and couldn't be created:\n{output_dir}\n\nError: {str(e)}",
+                    title="Directory Not Found",
+                    icon='ERROR'
+                )
+                self.report({'ERROR'}, f"Could not access or create main output directory: {output_dir}")
+                return {'CANCELLED'}
     
     def openPresetPath(self, context):
         """Open the SHOTPUT_PRESET_PATH folder from environment variable."""
@@ -103,8 +165,22 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                     shotput_nodes.append(node)
             
             if not shotput_nodes:
-                self.report({'ERROR'}, "No Shotput file output nodes found in the scene")
-                return {'CANCELLED'}
+                # Fallback 1: Look for composite nodes with Shotput properties
+                composite_nodes = []
+                for node in tree.nodes:
+                    if (node.type == 'COMPOSITE' and 
+                        hasattr(node, 'shotput_data') and 
+                        node.shotput_data.root_folder_token):
+                        composite_nodes.append(node)
+                
+                if composite_nodes:
+                    # Use the first composite node found
+                    target_node = composite_nodes[0]
+                    logger.info(f"No Shotput output nodes found, using composite node '{target_node.name}'")
+                    self.report({'INFO'}, f"Using composite node '{target_node.name}' for folder path")
+                else:
+                    # Fallback 2: Check main output location
+                    return self.openMainOutputFolder(context)
             elif len(shotput_nodes) == 1:
                 target_node = shotput_nodes[0]
             else:
@@ -143,18 +219,21 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                 # Open the folder using Windows explorer
                 subprocess.run(['explorer', str(output_path)], check=False)
                 self.report({'INFO'}, f"Opened folder: {output_path}")
+                return {'FINISHED'}
             else:
                 # Try to create the directory structure if it doesn't exist
                 try:
                     output_path.mkdir(parents=True, exist_ok=True)
                     subprocess.run(['explorer', str(output_path)], check=False)
                     self.report({'INFO'}, f"Created and opened folder: {output_path}")
+                    return {'FINISHED'}
                 except Exception as e:
                     show_message_box(
                         message=f"Directory doesn't exist and couldn't be created:\n{output_path}\n\nError: {str(e)}", 
                         title="Directory Not Found"
                     )
                     self.report({'ERROR'}, f"Could not access or create directory: {output_path}")
+                    return {'CANCELLED'}
                     
         except Exception as e:
             logger.error(f"Error parsing root folder token: {str(e)}")
@@ -163,6 +242,7 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                 title="Token Parsing Error"
             )
             self.report({'ERROR'}, f"Error parsing root folder token: {str(e)}")
+            return {'CANCELLED'}
     
     def execute(self, context):
         if self.folder_type == 'PRESET':
@@ -173,22 +253,9 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                 self.report({'ERROR'}, "No compositor nodes available")
                 return {'CANCELLED'}
             
-            # Check if there are any Shotput file output nodes
-            tree = context.scene.node_tree
-            has_shotput_nodes = False
-            for node in tree.nodes:
-                if (node.type == 'OUTPUT_FILE' and 
-                    hasattr(node, 'shotput_data') and 
-                    node.shotput_data.root_folder_token):
-                    has_shotput_nodes = True
-                    break
-            
-            if not has_shotput_nodes:
-                self.report({'ERROR'}, "No Shotput file output nodes found in the scene")
-                return {'CANCELLED'}
-            
-            self.openFolder(context)
-            return {'FINISHED'}
+            # Attempt to open folder - this will handle all fallback logic
+            result = self.openFolder(context)
+            return result if result else {'FINISHED'}
         
         return {'CANCELLED'}    
         
