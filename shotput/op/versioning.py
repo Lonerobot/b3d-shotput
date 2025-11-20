@@ -1279,7 +1279,7 @@ class OT_Token_Help(bpy.types.Operator):
                 ('workdir', workdir_desc),
                 ('subpath', 'Additional folder path from preferences'),
                 ('outputlayer', 'The name of the current output collection for output'),
-                ('passname', 'Pass name (beauty, diffuse, etc.)'),
+                ('passname', 'Pass name (Taken from the output channel name)'),
                 ('variant', 'Variant Description (Can be any custom text)'),
                 ('version', 'Version number'),
             ]
