@@ -802,6 +802,13 @@ class TL_PT_Shotput_UI(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = "UI"
     
+    @classmethod
+    def poll(cls, context):
+        """Only show in compositor node editor"""
+        return (context.space_data and 
+                context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'CompositorNodeTree')
+    
     def draw_header_section(self, layout, shotput):
         """Draw welcome/description box with AYON detection"""
         box = layout.box()
