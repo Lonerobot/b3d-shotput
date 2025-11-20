@@ -147,8 +147,9 @@ class ShotputFileOutputProperties(bpy.types.PropertyGroup):
     output_layer: bpy.props.StringProperty(
         name="Output Layer"
     )
-    pass_name: bpy.props.StringProperty(
-        name="Pass Name"
+    pass_type: bpy.props.StringProperty(
+        name="Pass Type",
+        description="Type of pass node: core, aov, data, or composite"
     )
     variant: bpy.props.StringProperty(
         name="Variant"
@@ -241,8 +242,9 @@ class ShotputSceneProperties(bpy.types.PropertyGroup):
         name="Output Layer",
         default="ViewLayer"
     )
-    pass_name: bpy.props.StringProperty(
-        name="Pass Name"
+    pass_type: bpy.props.StringProperty(
+        name="Pass Type",
+        description="Type of pass node: core, aov, data, or composite"
     )
     variant: bpy.props.StringProperty(
         name="Variant",
