@@ -231,7 +231,7 @@ class OT_Open_Output_Folder(bpy.types.Operator):
             # Parse the root folder token to get the actual path
             resolved_root_path = token_parser.parse_token(
                 node_props.root_folder_token, 
-                passname=node_props.pass_name
+                passname=node_props.pass_type
             )
             
             logger.info(f'Open Folder - Resolved path for node "{target_node.name}": {resolved_root_path}')

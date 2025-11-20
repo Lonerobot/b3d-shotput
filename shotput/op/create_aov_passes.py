@@ -161,7 +161,7 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
         # Copy scene properties to node
         node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
-        node_props.pass_name = area_name  # Use area name as pass name
+        node_props.pass_type = "aov"  # Always set to 'aov' regardless of override name
         
         # Store UI tokens as normal mode backups BEFORE applying AYON tokens
         node_props.normal_root_folder_token = shotput_props.root_folder_token

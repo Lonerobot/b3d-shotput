@@ -946,11 +946,11 @@ class OT_Update_Version(bpy.types.Operator):
             
             if node_format == 'OPEN_EXR_MULTILAYER':
                 # EXR Multilayer: Update base_path only, slots remain as channel names
-                pass_name = node_props.pass_name if hasattr(node_props, 'pass_name') else None
+                pass_type = node_props.pass_type if hasattr(node_props, 'pass_type') else None
                 
                 # Parse filename with new version - ALWAYS use normal path logic for filenames
-                if pass_name:
-                    temp_token = file_token.replace('{passname}', pass_name)
+                if pass_type:
+                    temp_token = file_token.replace('{passname}', pass_type)
                     new_filename = self._reconstruct_filename_with_version(temp_token, new_version, token_parser)
                 else:
                     new_filename = self._reconstruct_filename_with_version(file_token, new_version, token_parser)
@@ -997,9 +997,9 @@ class OT_Update_Version(bpy.types.Operator):
                 # Update base path for single file formats
                 root_token = node_props.root_folder_token
                 if root_token:
-                    pass_name = node_props.pass_name if hasattr(node_props, 'pass_name') else None
-                    if pass_name:
-                        temp_root_token = root_token.replace('{passname}', pass_name)
+                    pass_type = node_props.pass_type if hasattr(node_props, 'pass_type') else None
+                    if pass_type:
+                        temp_root_token = root_token.replace('{passname}', pass_type)
                         new_base_path = self._reconstruct_path_with_version(temp_root_token, new_version, token_parser)
                     else:
                         new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)

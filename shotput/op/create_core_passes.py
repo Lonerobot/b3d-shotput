@@ -193,7 +193,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Copy scene properties to node
         node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
-        node_props.pass_name = area_name  # Use area name as pass name
+        node_props.pass_type = "core"  # Always set to 'core' regardless of override name
         
         # Store UI tokens as normal mode backups BEFORE applying AYON tokens
         node_props.normal_root_folder_token = shotput_props.root_folder_token
@@ -663,7 +663,7 @@ class OT_Create_Core_Passes(bpy.types.Operator):
         # Copy properties from core node (not scene properties)
         comp_props.output_layer = core_node.shotput_data.output_layer
         comp_props.variant = core_node.shotput_data.variant
-        comp_props.pass_name = "composite"  # Set pass name to "composite"
+        comp_props.pass_type = "composite"  # Set pass type to "composite"
         
         # Store normal mode backups from core node BEFORE applying AYON tokens
         comp_props.normal_root_folder_token = core_node.shotput_data.root_folder_token
@@ -926,7 +926,7 @@ class OT_Create_Linked_Composite(bpy.types.Operator):
         # Copy properties from source
         comp_props.output_layer = output_layer
         comp_props.variant = variant
-        comp_props.pass_name = "composite"  # Set pass name to "composite"
+        comp_props.pass_type = "composite"  # Set pass type to "composite"
         
         # Store normal mode backups from source BEFORE applying AYON tokens
         comp_props.normal_root_folder_token = getattr(source_props, 'root_folder_token', '')

@@ -215,8 +215,8 @@ class TokenParser:
             return False
             
         # Check if this is a data pass node
-        pass_name = getattr(self.node_properties, 'pass_name', '')
-        if pass_name == 'data':
+        pass_type = getattr(self.node_properties, 'pass_type', '')
+        if pass_type == 'data':
             return True
             
         # Also check if we can find the actual node and check its format
@@ -383,9 +383,14 @@ class TokenParser:
         return 'ViewLayer'
     
     def _resolve_passname(self) -> str:
-        """Resolve pass name token from node properties"""
-        if self.node_properties and hasattr(self.node_properties, 'pass_name'):
-            return getattr(self.node_properties, 'pass_name', 'Beauty')
+        """Resolve passname token from node properties.
+        
+        NOTE: The {passname} token resolves to individual CHANNEL NAMES during file slot creation
+        (Beauty, DiffDir, depth, etc.) via override parameters. The pass_type property stores the
+        CATEGORY (core/aov/data/composite) and is only used as fallback when no override provided.
+        """
+        if self.node_properties and hasattr(self.node_properties, 'pass_type'):
+            return getattr(self.node_properties, 'pass_type', 'Beauty')
         return 'Beauty'
     
     def _resolve_variant(self) -> str:
@@ -586,7 +591,7 @@ class TokenParser:
             'workdir': 'Working directory (AYON_WORKDIR or blend file location)',
             'subpath': 'Render output subdirectory',
             'outputlayer': 'Output layer name',
-            'passname': 'Pass name (Beauty, Core, AOV, Data)',
+            'passname': 'Channel name (Beauty, DiffDir, depth, etc.) - resolves to individual output channels',
             'variant': 'Variant name',
             'version': 'Version string (v001, v002, etc.)',
             

@@ -236,7 +236,7 @@ class OT_Create_Data_Passes(bpy.types.Operator):
         # Copy scene properties to node
         node_props.output_layer = shotput_props.output_layer
         node_props.variant = shotput_props.variant
-        node_props.pass_name = area_name  # Use "data" as pass name
+        node_props.pass_type = "data"  # Always 'data' (no override available for data passes)
         
         # Store UI tokens as normal mode backups BEFORE applying AYON tokens
         node_props.normal_root_folder_token = shotput_props.root_folder_token
