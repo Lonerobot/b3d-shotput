@@ -1290,6 +1290,17 @@ class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
             self.report({'WARNING'}, "No view layers found in scene")
             return {'CANCELLED'}
         
+        # Check if there's already a default Render Layers node for the first view layer
+        # Blender creates this automatically when enabling "use nodes"
+        existing_render_layer_node = None
+        first_view_layer_name = view_layers[0].name
+        
+        for node in tree.nodes:
+            if node.type == 'R_LAYERS' and node.layer == first_view_layer_name:
+                existing_render_layer_node = node
+                print(f"Shotput: Found existing render layer node for '{first_view_layer_name}' - reusing it")
+                break
+        
         # Starting position for the first node
         start_x = 0
         start_y = 0
@@ -1300,6 +1311,16 @@ class SHOTPUT_OT_BuildRenderLayers(bpy.types.Operator):
         # Create a render layer node for each view layer
         created_nodes = []
         for i, view_layer in enumerate(view_layers):
+            # Skip the first view layer if we already have a node for it
+            if i == 0 and existing_render_layer_node:
+                # Reuse the existing node - just reposition it and add to our list
+                existing_render_layer_node.location = (start_x, start_y)
+                existing_render_layer_node.name = f"Render Layers - {view_layer.name}"
+                existing_render_layer_node.label = view_layer.name
+                created_nodes.append(existing_render_layer_node)
+                print(f"Shotput: Reused existing render layer node for '{view_layer.name}' at {existing_render_layer_node.location}")
+                continue
+            
             # Create render layer node
             render_node = tree.nodes.new(type='CompositorNodeRLayers')
             render_node.name = f"Render Layers - {view_layer.name}"
