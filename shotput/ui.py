@@ -1079,19 +1079,20 @@ class TL_PT_Shotput_Node_UI(bpy.types.Panel):
         """Draw node properties box with version and AYON toggle"""
         box = layout.box()
         
-        # Header row with title and version
+        # Header row with title, node type, and version
         if shotput_data.shotput_version:
             header_row = box.row()
             UIHelper.icon_label(header_row, "Shotput Properties", 'settings')
             header_row.separator()
             version_label = header_row.row()
             version_label.enabled = False
-            version_label.label(text=f"Version: {shotput_data.shotput_version}")
+            # Show node type and version on same line
+            node_type = getattr(shotput_data, 'pass_type', 'unknown').title()
+            version_label.label(text=f"Type: {node_type} | Version: {shotput_data.shotput_version}")
         else:
             UIHelper.icon_label(box, "Shotput Properties", 'settings')
         
         box.prop(shotput_data, "output_layer", text="Output Layer")
-        box.prop(shotput_data, "pass_name", text="Pass Name")
         box.prop(shotput_data, "variant", text="Variant")
         
         # AYON Mode Toggle - only show if AYON is detected
