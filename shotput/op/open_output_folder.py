@@ -1,4 +1,5 @@
 import subprocess
+import platform
 import bpy
 
 from pathlib import Path
@@ -7,6 +8,20 @@ from ..utils.token_parser import TokenParser
 
 from ..utils.log import LoggerFactory
 logger = LoggerFactory.logger_obj()
+
+
+def open_folder_in_explorer(folder_path):
+    """Open folder using platform-specific file manager"""
+    system = platform.system()
+    if system == 'Windows':
+        subprocess.run(['explorer', str(folder_path)], check=False)
+    elif system == 'Darwin':  # macOS
+        subprocess.run(['open', str(folder_path)], check=False)
+    elif system == 'Linux':
+        subprocess.run(['xdg-open', str(folder_path)], check=False)
+    else:
+        logger.warning(f"Unsupported platform for folder opening: {system}")
+        raise OSError(f"Unsupported platform: {system}")
 
 
 def show_message_box(message="", title="Message Box", icon='INFO'):
@@ -81,15 +96,15 @@ class OT_Open_Output_Folder(bpy.types.Operator):
         print(f"Shotput: Using main render output path: {output_dir}")
         
         if output_dir.exists():
-            # Open the folder using Windows explorer
-            subprocess.run(['explorer', str(output_dir)], check=False)
+            # Open the folder using platform-specific file manager
+            open_folder_in_explorer(output_dir)
             self.report({'INFO'}, f"Opened main output folder: {output_dir}")
             return {'FINISHED'}
         else:
             # Try to create the directory if it doesn't exist
             try:
                 output_dir.mkdir(parents=True, exist_ok=True)
-                subprocess.run(['explorer', str(output_dir)], check=False)
+                open_folder_in_explorer(output_dir)
                 self.report({'INFO'}, f"Created and opened main output folder: {output_dir}")
                 return {'FINISHED'}
             except Exception as e:
@@ -120,8 +135,8 @@ class OT_Open_Output_Folder(bpy.types.Operator):
         preset_dir = Path(preset_path)
         
         if preset_dir.exists():
-            # Open the folder using Windows explorer
-            subprocess.run(['explorer', str(preset_dir)], check=False)
+            # Open the folder using platform-specific file manager
+            open_folder_in_explorer(preset_dir)
             self.report({'INFO'}, f"Opened preset path: {preset_dir}")
             logger.info(f"Opened SHOTPUT_PRESET_PATH: {preset_dir}")
             return {'FINISHED'}
@@ -129,7 +144,7 @@ class OT_Open_Output_Folder(bpy.types.Operator):
             # Try to create the directory if it doesn't exist
             try:
                 preset_dir.mkdir(parents=True, exist_ok=True)
-                subprocess.run(['explorer', str(preset_dir)], check=False)
+                open_folder_in_explorer(preset_dir)
                 self.report({'INFO'}, f"Created and opened preset path: {preset_dir}")
                 logger.info(f"Created and opened SHOTPUT_PRESET_PATH: {preset_dir}")
                 return {'FINISHED'}
@@ -155,6 +170,15 @@ class OT_Open_Output_Folder(bpy.types.Operator):
             hasattr(active_node, 'shotput_data') and 
             active_node.shotput_data.root_folder_token):
             target_node = active_node
+        # Check if active node is a valid Shotput composite node
+        elif (active_node and 
+              active_node.type == 'COMPOSITE' and 
+              hasattr(active_node, 'shotput_data') and 
+              active_node.shotput_data.root_folder_token and
+              active_node.name.startswith('Shotput_')):
+            target_node = active_node
+            logger.info(f"Using active composite node '{target_node.name}'")
+            self.report({'INFO'}, f"Using active composite node '{target_node.name}' for folder path")
         else:
             # Find the first Shotput file output node in the scene
             shotput_nodes = []
@@ -170,13 +194,14 @@ class OT_Open_Output_Folder(bpy.types.Operator):
                 for node in tree.nodes:
                     if (node.type == 'COMPOSITE' and 
                         hasattr(node, 'shotput_data') and 
-                        node.shotput_data.root_folder_token):
+                        node.shotput_data.root_folder_token and
+                        node.name.startswith('Shotput_')):
                         composite_nodes.append(node)
                 
                 if composite_nodes:
                     # Use the first composite node found
                     target_node = composite_nodes[0]
-                    logger.info(f"No Shotput output nodes found, using composite node '{target_node.name}'")
+                    logger.info(f"No Shotput output nodes found, using composite node '{target_node.name}' with token '{target_node.shotput_data.root_folder_token}'")
                     self.report({'INFO'}, f"Using composite node '{target_node.name}' for folder path")
                 else:
                     # Fallback 2: Check main output location
@@ -216,15 +241,15 @@ class OT_Open_Output_Folder(bpy.types.Operator):
             output_path = Path(resolved_root_path)
             
             if output_path.exists():
-                # Open the folder using Windows explorer
-                subprocess.run(['explorer', str(output_path)], check=False)
+                # Open the folder using platform-specific file manager
+                open_folder_in_explorer(output_path)
                 self.report({'INFO'}, f"Opened folder: {output_path}")
                 return {'FINISHED'}
             else:
                 # Try to create the directory structure if it doesn't exist
                 try:
                     output_path.mkdir(parents=True, exist_ok=True)
-                    subprocess.run(['explorer', str(output_path)], check=False)
+                    open_folder_in_explorer(output_path)
                     self.report({'INFO'}, f"Created and opened folder: {output_path}")
                     return {'FINISHED'}
                 except Exception as e:
