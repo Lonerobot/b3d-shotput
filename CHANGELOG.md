@@ -5,6 +5,18 @@ All notable changes to Shotput will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## Branch Structure
+
+Shotput development has split to support both Blender 4.x and 5.0:
+
+- **`blender4x` branch** - Blender 4.0-4.x support (v1.3.x) - Maintenance only
+- **`blender5x` branch** - Blender 5.0+ support (v2.0.x) - Active development
+- **`master` branch** - Release coordination and documentation
+
+---
+
 ## [1.3.0-rc] - 2025-11-25
 
 ### Changed
