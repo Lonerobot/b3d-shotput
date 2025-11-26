@@ -15,10 +15,10 @@ r"""
 bl_info = {
     "name": "Shotput",
     "description": "Build and repath file output nodes automatically",
-    "blender": (4, 4, 0),
+    "blender": (5, 0, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
-    "version": (1, 2, 8),
+    "version": (2, 0, 0),
     "location": "Compositor Tab > Sidebar",
     "doc_url": "https://github.com/Lonerobot/b3d-shotput",
     "wiki_url": "https://www.thelineanimation.com",
@@ -28,7 +28,7 @@ bl_info = {
 
 # Module level constants
 __version__ = ".".join(str(x) for x in bl_info["version"])
-__release_stage__ = "beta"  # "alpha", "beta", or "release"
+__release_stage__ = "alpha"  # "alpha", "beta", or "release"
 __author__ = bl_info["author"]
 __package_name__ = __name__.rpartition('.')[0] if '.' in __name__ else __name__
 
