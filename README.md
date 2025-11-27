@@ -13,8 +13,8 @@ Shotput development has split to support both Blender 4.x and the new Blender 5.
 
 ### 📦 Blender 4.x (Stable - Production Ready)
 
-**Branch:** [`blender4x`](../../tree/blender4x)  
-**Version:** 1.3.0-rc  
+**Branch:** [`blender4x`](../../tree/blender4x)
+**Version:** 1.3.0-rc
 **Status:** 🟢 Maintenance (Bug fixes only)
 
 ```bash
@@ -24,6 +24,7 @@ git checkout blender4x
 **Supported Blender Versions:** 4.0, 4.1, 4.2, 4.3, 4.4+
 
 This branch is stable and production-ready. Use this for:
+
 - Production rendering work
 - Studios using Blender 4.x
 - AYON pipeline integration on Blender 4.x
@@ -34,8 +35,8 @@ This branch is stable and production-ready. Use this for:
 
 ### 🚧 Blender 5.x (Development - Alpha)
 
-**Branch:** [`blender5x`](../../tree/blender5x)  
-**Version:** 2.0.0-alpha  
+**Branch:** [`blender5x`](../../tree/blender5x)
+**Version:** 2.0.0-alpha
 **Status:** 🟡 Active Development
 
 ```bash
@@ -45,6 +46,7 @@ git checkout blender5x
 **Supported Blender Versions:** 5.0+
 
 This branch is under active development for Blender 5.0's new compositor API. Major changes:
+
 - Complete compositor API migration (`scene.node_tree` → `scene.compositing_node_group`)
 - File Output node refactoring (`base_path` → `directory`)
 - Group Output replaces Composite node
@@ -52,77 +54,18 @@ This branch is under active development for Blender 5.0's new compositor API. Ma
 
 **Not ready for production use.**
 
-[→ See Blender 5.x Migration Report](./BLENDER5_MIGRATION_REPORT.md)
-
----
-
-## 📚 Documentation
-
-Full documentation is available in each branch:
-
-- **User Guide:** [addons/README.md](./addons/README.md)
-- **API Reference:** [docs/api-reference.md](./docs/api-reference.md)
-- **Installation:** [docs/installation-setup.md](./docs/installation-setup.md)
-- **Preset System:** [docs/preset-system.md](./docs/preset-system.md)
-
----
-
-## 🎯 Quick Start
-
-1. **Choose your branch** based on your Blender version
-2. Download the addon zip from [Releases](../../releases)
-3. Install via Blender Preferences → Add-ons → Install
-4. Find Shotput in the Compositor workspace sidebar
-
----
-
-## 🔗 Links
-
-- **Repository:** [github.com/Lonerobot/b3d-shotput](https://github.com/Lonerobot/b3d-shotput)
-- **Issues:** [Report bugs or request features](../../issues)
-- **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
-- **Studio:** [The Line Animation](https://www.thelineanimation.com)
-
----
-
 ## 📋 Branch Status
 
-| Branch | Blender | Version | Status | Use Case |
-|--------|---------|---------|--------|----------|
-| [`blender4x`](../../tree/blender4x) | 4.0 - 4.x | 1.3.0-rc | 🟢 Stable | Production |
-| [`blender5x`](../../tree/blender5x) | 5.0+ | 2.0.0-alpha | 🟡 Dev | Testing |
-| `master` | - | - | 📍 Release | Release tags |
-
----
-
-## 🛠️ Development
-
-**Contributing to Blender 4.x (Bug fixes):**
-```bash
-git checkout blender4x
-# Make your changes
-git commit -m "Fix: description"
-```
-
-**Contributing to Blender 5.x (New features):**
-```bash
-git checkout blender5x
-# Make your changes
-git commit -m "Feature: description"
-```
-
----
-
-## 📜 License
-
-Licensed under the MIT License. See LICENSE file for details.
-
-**Built with ❤️ for the Blender community.**
+| Branch                             | Blender   | Version     | Status      | Use Case                                 |
+| ---------------------------------- | --------- | ----------- | ----------- | ---------------------------------------- |
+| [`blender4x`](../../tree/blender4x) | 4.0 - 4.x | 1.3.0       | 🟢 Stable   | Production                               |
+| [`blender5x`](../../tree/blender5x) | 5.0+      | 2.0.0-alpha | 🟡 Dev      | Testing                                  |
+| `master`                         |           | -           | Depreciated | May merge `blender5x` branch in future |
 
 ---
 
 ## 🏷️ Latest Release
 
-**Stable (Blender 4.x):** [v1.3.0-rc](../../releases/tag/v1.3.0-rc)
+**Stable (Blender 4.x):** [v1.3.0](../../releases/tag/v1.3.0)
 
 Download the appropriate version for your Blender installation.
