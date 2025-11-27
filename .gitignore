@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# don't include the release archives
+*.zip
+
 # Distribution / packaging
 .Python
 build/
