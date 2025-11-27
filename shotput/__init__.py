@@ -15,7 +15,7 @@ r"""
 bl_info = {
     "name": "Shotput",
     "description": "Build and repath file output nodes automatically",
-    "blender": (4, 4, 0),
+    "blender": (4, 5, 0),
     "category": "THELINE",
     "author": "Pete.Addington",
     "version": (1, 3, 0),
