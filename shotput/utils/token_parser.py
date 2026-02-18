@@ -150,7 +150,9 @@ class TokenParser:
         is_multichannel_exr = self._is_multichannel_exr_node()
         
         # Special handling for multichannel EXR nodes
-        if is_multichannel_exr and (token_string == "{passname}" or not token_string.strip()):
+        # Note: In AYON mode, token_string may be a full path token like "{workdir}/{subpath}/{blendfile}"
+        # but for path-linked multichannel EXR, we should use the linked directory and add filename
+        if is_multichannel_exr:
             # For multichannel EXR, we need to rebuild the path with filename
             # Get the linked node's directory (remove filename from base path if present)
             linked_path = Path(linked_base_path)
@@ -169,7 +171,8 @@ class TokenParser:
                 passname = self._resolve_passname()
                 root_folder_parsed = str(linked_dir / passname)
             else:
-                # If no token specified, use linked directory directly
+                # For any other token (including AYON tokens like "{workdir}/{subpath}/{blendfile}")
+                # or empty string, use linked directory directly for multichannel EXR path linking
                 root_folder_parsed = str(linked_dir)
             
             # Get and parse the file name token
