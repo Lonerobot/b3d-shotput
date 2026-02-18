@@ -784,7 +784,19 @@ class OT_Update_Version(bpy.types.Operator):
             return False
     
     def _is_path_linked(self, node_props):
-        """Check if a node is path-linked to another node"""
+        """
+        Check if a node is path-linked to another node.
+        
+        Note: Path linking is NOT used in AYON mode, as AYON provides its own 
+        structured path system. If AYON mode is enabled, this returns False 
+        regardless of path_linked property state.
+        """
+        # Check if AYON mode is enabled for this node (takes precedence over path linking)
+        if hasattr(node_props, 'use_ayon_output_style') and node_props.use_ayon_output_style:
+            # AYON mode is enabled - ignore path linking
+            return False
+        
+        # Standard path linking check
         return (hasattr(node_props, 'path_linked') and 
                 getattr(node_props, 'path_linked', False) and
                 hasattr(node_props, 'linked_node') and
@@ -945,7 +957,7 @@ class OT_Update_Version(bpy.types.Operator):
             logger.debug(f"Updating node {node.name} with format {node_format}")
             
             if node_format == 'OPEN_EXR_MULTILAYER':
-                # EXR Multilayer: Update base_path only, slots remain as channel names
+                # EXR Multilayer: Update base_path with special handling for AYON/complex tokens
                 pass_type = node_props.pass_type if hasattr(node_props, 'pass_type') else None
                 
                 # Parse filename with new version - ALWAYS use normal path logic for filenames
@@ -955,17 +967,40 @@ class OT_Update_Version(bpy.types.Operator):
                 else:
                     new_filename = self._reconstruct_filename_with_version(file_token, new_version, token_parser)
                 
-                # Parse root folder with new version - use appropriate logic based on linking
+                # Parse root folder with new version - CRITICAL: Ensure directory-only for multichannel EXR
+                # Note: For multichannel EXR, root_token may contain complex AYON tokens like 
+                # "{workdir}/{subpath}/{blendfile}" which should resolve to a directory, then we append filename
                 root_token = node_props.root_folder_token
                 if root_token:
-                    if pass_name:
-                        temp_root_token = root_token.replace('{passname}', pass_name)
-                        new_base_path = self._reconstruct_path_with_version(temp_root_token, new_version, token_parser)
+                    # First parse the root token with new version
+                    if pass_type:
+                        temp_root_token = root_token.replace('{passname}', pass_type)
+                        parsed_path = self._reconstruct_path_with_version(temp_root_token, new_version, token_parser)
                     else:
-                        new_base_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
+                        parsed_path = self._reconstruct_path_with_version(root_token, new_version, token_parser)
                     
-                    # Update base path with filename and sequence padding
-                    node.base_path = f"{new_base_path}/{new_filename}.{sequence_padding}"
+                    # For multichannel EXR: Extract directory from parsed path (remove potential filename)
+                    # This matches the fix in token_parser.py _parse_linked_path()
+                    from pathlib import Path
+                    parsed_path_obj = Path(parsed_path)
+                    
+                    # Check if parsed path looks like it has a filename (has extension)
+                    if parsed_path_obj.suffix and '.' in parsed_path_obj.name:
+                        # Path includes filename, extract directory
+                        base_dir = parsed_path_obj.parent
+                        logger.debug(f"Multichannel EXR: Extracted directory '{base_dir}' from path '{parsed_path}'")
+                    else:
+                        # Path is already a directory
+                        base_dir = parsed_path_obj
+                    
+                    # Determine if we need passname subdirectory
+                    if '{passname}' in root_token and pass_type:
+                        # Passname token exists, add passname as subdirectory
+                        base_dir = base_dir / pass_type
+                        logger.debug(f"Multichannel EXR: Added passname subdirectory '{pass_type}'")
+                    
+                    # Build final base_path: directory + filename + padding
+                    node.base_path = str(base_dir / f"{new_filename}.{sequence_padding}")
                     logger.debug(f"Updated EXR multilayer base_path to: {node.base_path}")
                 
                 # For EXR multilayer, file slots should remain as channel names only

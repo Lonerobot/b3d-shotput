@@ -1,11 +1,18 @@
-# 🎬 Shotput v1.3.0
+# 🎬 Shotput v1.3.1
 
 > **A tokenised render output addon for Blender 4.4+**
 
 ![Blender](https://img.shields.io/badge/blender-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
-## 🚀 What's New in v1.3.0
+## 🚀 What's New in v1.3.1
+
+### Bug Fixes
+- **Fixed multichannel EXR path handling in AYON mode**: Multichannel EXR nodes now correctly handle complex AYON tokens like `{workdir}/{subpath}/{blendfile}` when updating versions
+- **Fixed AYON mode precedence**: Path linking is now properly ignored when AYON mode is enabled, preventing false positives
+- **Fixed version update operator**: Multichannel EXR nodes in standard and AYON modes now properly extract directory-only paths during version updates
+
+## 📝 v1.3.0 Release Notes
 
 After a lot of testing, this is the first production release for Shotput. Future development will operate in 2 forms -
 
@@ -18,7 +25,7 @@ After a lot of testing, this is the first production release for Shotput. Future
 
 ## 📦 Installation
 
-1. Download **Shotput-v1.3.0.zip**
+1. Download **Shotput-v1.3.1.zip**
 2. In Blender: **Edit → Preferences → Add-ons → Install...**
 3. Select the downloaded zip
 4. Enable the "Shotput" addon
