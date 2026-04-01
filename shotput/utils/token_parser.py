@@ -120,8 +120,18 @@ class TokenParser:
         return self._parse_normal_path(token_string, **kwargs)
     
     def _is_path_linked(self) -> bool:
-        """Check if the current node is path-linked to another node"""
+        """
+        Check if the current node is path-linked to another node.
+
+        Note: Path linking is NOT used in AYON mode, as AYON provides its own
+        structured path system. If AYON mode is enabled, this returns False
+        regardless of path_linked property state.
+        (Mirrors the fix applied to versioning.py._is_path_linked in dccaae4.)
+        """
         if not self.node_properties:
+            return False
+        # AYON mode takes precedence over path linking
+        if hasattr(self.node_properties, 'use_ayon_output_style') and self.node_properties.use_ayon_output_style:
             return False
         return (hasattr(self.node_properties, 'path_linked') and 
                 getattr(self.node_properties, 'path_linked', False) and

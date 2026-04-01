@@ -618,10 +618,20 @@ class OT_Update_Version(bpy.types.Operator):
                                     self.report({'WARNING'}, f"Cannot update scene render path: Linked node '{linked_node_name}' is path-linked but has no base path (circular dependency). Please set a base path for '{linked_node_name}' or disable its path linking.")
                                     return
                                 else:
-                                    # The linked node is not path-linked but has no base path - this shouldn't happen
-                                    logger.warning(f"Linked node {linked_node_name} has no base path - cannot use for composite render path")
-                                    self.report({'WARNING'}, f"Cannot update scene render path: Linked node '{linked_node_name}' has no base path set. Please set a base path for this node.")
-                                    return
+                                    # Linked node is a normal Shotput node — try to rebuild from its tokens.
+                                    # This handles the case where the user manually cleared the node's
+                                    # base_path: we should always be able to resolve it from tokens.
+                                    linked_props = getattr(linked_node, 'shotput_data', None)
+                                    linked_root_token = getattr(linked_props, 'root_folder_token', '') if linked_props else ''
+                                    if linked_root_token:
+                                        from ..utils.token_parser import TokenParser as _LinkedTP
+                                        _linked_parser = _LinkedTP(linked_props)
+                                        linked_base_path = _linked_parser.parse_token(linked_root_token)
+                                        logger.info(f"Rebuilt linked node '{linked_node_name}' path from tokens: '{linked_base_path}'")
+                                    if not linked_base_path:
+                                        logger.warning(f"Linked node {linked_node_name} has no base path and no resolvable tokens")
+                                        self.report({'WARNING'}, f"Cannot update scene render path: Linked node '{linked_node_name}' has no base path and no path tokens are configured.")
+                                        return
                             
                             # Start with the linked node's base path
                             base_path = linked_base_path
@@ -950,8 +960,12 @@ class OT_Update_Version(bpy.types.Operator):
             sequence_padding = get_sequence_padding()
             
             # Update node format to match UI setting
-            self._update_node_format(node, context)
-            
+            # Defensive: capture base_path before format change in case Blender resets it
+            _base_path_before_format = node.base_path
+            # Note: we do NOT force the format here. If the user manually changed the node's
+            # format in the compositor, that choice is respected. Format is only set at
+            # creation time by the Create Passes operators.
+
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
             logger.debug(f"Updating node {node.name} with format {node_format}")
@@ -993,14 +1007,19 @@ class OT_Update_Version(bpy.types.Operator):
                         # Path is already a directory
                         base_dir = parsed_path_obj
                     
-                    # Determine if we need passname subdirectory
-                    if '{passname}' in root_token and pass_type:
-                        # Passname token exists, add passname as subdirectory
+                    # Determine if we need passname subdirectory.
+                    # Only add a subdirectory when the ENTIRE root_token is literally '{passname}'
+                    # (the path-linked composite case: root_folder_token = "{passname}").
+                    # When {passname} is embedded in a longer segment like
+                    # {outputlayer}_{passname}_{variant}/{version}, it is already
+                    # resolved into the directory name above — adding it again would
+                    # duplicate the folder and produce a path mismatch vs creation.
+                    if root_token.strip() == '{passname}' and pass_type:
                         base_dir = base_dir / pass_type
                         logger.debug(f"Multichannel EXR: Added passname subdirectory '{pass_type}'")
                     
-                    # Build final base_path: directory + filename + padding
-                    node.base_path = str(base_dir / f"{new_filename}.{sequence_padding}")
+                    # Build final base_path: directory + filename + padding + .exr
+                    node.base_path = str(base_dir / f"{new_filename}.{sequence_padding}.exr")
                     logger.debug(f"Updated EXR multilayer base_path to: {node.base_path}")
                 
                 # For EXR multilayer, file slots should remain as channel names only
@@ -1074,9 +1093,9 @@ class OT_Update_Version(bpy.types.Operator):
             # Get sequence padding from preferences
             sequence_padding = get_sequence_padding()
             
-            # Update node format to match UI setting
-            self._update_node_format(node, context)
-            
+            # Note: we do NOT force the format here. If the user manually changed the node's
+            # format in the compositor, that choice is respected.
+
             # Check the actual node format to determine path logic
             node_format = node.format.file_format
             logger.debug(f"Updating linked node {node.name} filenames only with format {node_format}")

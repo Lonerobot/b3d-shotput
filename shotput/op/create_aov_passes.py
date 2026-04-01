@@ -255,7 +255,13 @@ class OT_Create_AOV_Passes(bpy.types.Operator):
             # Multi channel EXR: base_path = rootpath + filename_token + .####, file_slots = channel names only
             resolved_filename = token_parser.parse_token(node_props.file_name_token, passname=area_name)
             resolved_base_path = token_parser.parse_token(node_props.root_folder_token, passname=area_name)
-            full_base_path = f"{resolved_base_path}/{resolved_filename}.{sequence_padding}"
+            # Guard: strip any apparent filename/extension from the resolved root path
+            # (mirrors the same guard in versioning.py _update_file_slots for OPEN_EXR_MULTILAYER)
+            from pathlib import Path as _Path
+            _resolved_path_obj = _Path(resolved_base_path)
+            if _resolved_path_obj.suffix and '.' in _resolved_path_obj.name:
+                resolved_base_path = str(_resolved_path_obj.parent)
+            full_base_path = f"{resolved_base_path}/{resolved_filename}.{sequence_padding}.exr"
             file_output.base_path = full_base_path
 
             # EXR MULTILAYER FIRST SLOT FIX: Remove the default first slot entirely
